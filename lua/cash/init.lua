@@ -15,6 +15,8 @@ local autumnRed = '#C34043'
 local waveBlue2 = '#2D4F67'
 
 local defaultOptions = {
+    -- center the screen after each search
+    centerAfterSearch = true,
     -- color settings
     colors = {
         -- default colors for foreground and background (used for highlight
@@ -35,10 +37,8 @@ local defaultOptions = {
         },
     },
     -- setting to control whether or not using * or # from normal mode will
-    -- jump to the next occurrence
-    noStarJump = true,
-    -- center the screen after each search
-    centerAfterSearch = true,
+    -- jump to the next occurrence. Vim will jump by default
+    disableStarPoundJump = true,
 }
 
 local throw = function(valueName, requiredType)
@@ -50,6 +50,9 @@ local checkType = function(value, valueName, typeName)
         throw(valueName, typeName)
     end
 end
+
+local invalidOptionMessage = 'is not a valid option for Cash.nvim'
+
 
 local generateDefaultState = function()
     return {
@@ -81,13 +84,12 @@ CashModule.setup = function(options)
     options.colors.defaultFG = options.colors.defaultFG or defaultOptions.colors.defaultFG
     options.colors.defaultBG = options.colors.defaultBG or defaultOptions.colors.defaultBG
     options.colors.highlightColors = options.colors.highlightColors or defaultOptions.colors.highlightColors
-    options.message = options.message or 'hello'
 
     -- validate options
     for key1, value1 in pairs(options) do
         local name1 = 'options'
-        if key1 == 'message' then
-            checkType(value1, name1 .. '.message', 'string')
+        if key1 == 'centerAfterSearch' then
+            checkType(value1, name1 .. '.centerAfterSearch', 'boolean')
         elseif key1 == 'colors' then
             checkType(value1, name1 .. '.colors', 'table')
             for key2, value2 in pairs(value1) do
@@ -107,16 +109,18 @@ CashModule.setup = function(options)
                             elseif key4 == 'fg' then
                                 checkType(value4, name3 .. '.fg', 'string')
                             else
-                                error('"' .. name3 .. '.' .. key4 .. '" is not a valid option for Cash.nvim')
+                                error('"' .. name3 .. '.' .. key4 .. '" ' .. invalidOptionMessage)
                             end
                         end
                     end
                 else
-                    error('"options.colors.' .. key2 .. '" is not a valid option for Cash.nvim')
+                    error('"options.colors.' .. key2 .. '" ' .. invalidOptionMessage)
                 end
             end
+        elseif key1 == 'disableStarPoundJump' then
+            checkType(value1, name1 .. '.disableStarPoundJump', 'boolean')
         else
-            error('"options.' .. key1 .. '" is not a valid option for Cash.nvim')
+            error('"options.' .. key1 .. '" ' .. invalidOptionMessage)
         end
     end
 
@@ -229,7 +233,7 @@ vim.keymap.set('n', '*',
             vim.cmd('silent keepjumps normal! *<CR>')
 
             -- restore the window view
-            if windowView ~= nil and CashModule.options.noStarJump then
+            if windowView ~= nil and CashModule.options.disableStarPoundJump then
                 vim.fn.winrestview(windowView)
             end
         end
