@@ -34,6 +34,11 @@ local defaultOptions = {
             { bg = waveBlue2, fg = fujiWhite },
         },
     },
+    -- setting to control whether or not using * or # from normal mode will
+    -- jump to the next occurrence
+    noStarJump = true,
+    -- center the screen after each search
+    centerAfterSearch = true,
 }
 
 local throw = function(valueName, requiredType)
@@ -49,9 +54,21 @@ end
 local generateDefaultState = function()
     return {
         currentIndex = 1,
-        searchHighlightPatterns = { '', '', '', '', '', '', '', '', '' },
+        cashRegisters = { '', '', '', '', '', '', '', '', '' },
         matchIDs = { nil, nil, nil, nil, nil, nil, nil, nil, nil },
     }
+end
+
+-- sets the given string as the search pattern for the current index. This
+-- function should be called whenever the user performs a search
+local setSearch = function(searchString)
+    -- the / register will be set when the user searches, but we also need a
+    -- way to search for nothing to clear the search
+    if searchString == '' then
+        vim.fn.setreg('/', '')
+    end
+    -- set the contents of the active cash register
+    CashModule.state.cashRegisters[CashModule.state.currentIndex] = searchString
 end
 
 -- main setup function for Cash.nvim
@@ -103,13 +120,8 @@ CashModule.setup = function(options)
         end
     end
 
-    vim.api.nvim_create_user_command(
-        'TimeToTest',
-        function()
-            vim.notify(options.message)
-        end,
-        { bang = true }
-    )
+    -- set options
+    CashModule.options = options
 
     -- set up highlight groups
     for i = 1, 9 do
@@ -119,12 +131,115 @@ CashModule.setup = function(options)
     end
 
     -- set initial plugin state
-    CashModule.state = generateDefaultState()
+    CashModule.initialize()
 end
 
-CashModule.exampleVariable = function()
-    return 4
+-- initializes the state of the module
+CashModule.initialize = function()
+    CashModule.state = generateDefaultState()
+    setSearch('')
 end
+
+-- sets the active cash register
+CashModule.setCashRegister = function(newIndex)
+    -- get the contents of the active cash register and the new cash register
+    local currentPattern = CashModule.state.cashRegisters[CashModule.state.currentIndex]
+    local newPattern = CashModule.state.cashRegisters[newIndex]
+
+    -- delete the match that was highlighting the newIndex-th pattern
+    local matchID = CashModule.state.matchIDs[newIndex]
+    if matchID ~= nil and matchID ~= -1 then
+        vim.fn.matchdelete(matchID)
+        CashModule.state.matchIDs[newIndex] = nil
+    end
+
+    -- add a match for the old search highlight
+    CashModule.state.matchIDs[CashModule.state.currentIndex] = vim.fn.matchadd(
+        'CashRegister' .. CashModule.state.currentIndex,
+        currentPattern
+    )
+
+    -- change the active search highlight color
+    vim.api.nvim_set_hl(0, 'Search', {
+        fg = CashModule.options.colors.highlightColors[newIndex].fg or CashModule.options.colors.defaultFG,
+        bg = CashModule.options.colors.highlightColors[newIndex].bg or CashModule.options.colors.defaultBG,
+    })
+
+    -- if there is no search pattern, use an empty string
+    if newPattern == nil or newPattern == '' then
+        -- clear the search register
+        vim.fn.setreg('/', {})
+    else
+        -- store the new pattern in the search register
+        vim.fn.setreg('/', newPattern)
+        -- search for the new pattern (w = wrap around end of document)
+        vim.fn.search(newPattern, 'w')
+    end
+
+    -- update the active cash register index
+    CashModule.state.currentIndex = newIndex
+end
+
+-- set the cash register switching keymap. Use ?<number> to swap to the
+-- <number>-th search pattern
+vim.keymap.set('n', '?', function()
+    -- get a character from the user
+    vim.notify('Enter a digit to choose a cash registers')
+    local userNumber = tonumber(vim.fn.nr2char(vim.fn.getchar()))
+
+    -- if the user didn't enter a number, do nothing
+    if userNumber == nil then
+        vim.notify('Error: you must enter a digit to select a cash register')
+        return
+    end
+
+    -- set the active cash register to the user's desired number
+    CashModule.setCashRegister(userNumber)
+end)
+
+-- run custom functions after searching. Whenever the user performs a normal
+-- search, we need to make sure to update some things
+vim.keymap.set('c', '<CR>',
+    function()
+        -- check if the current command is a search command
+        local commandType = vim.fn.getcmdtype()
+        if commandType == '/' or commandType == '?' then
+            -- update Cash.nvim for the new search
+            setSearch(vim.fn.getcmdline())
+        end
+
+        -- execute the command as normal
+        return '<CR>'
+    end,
+    { expr = true }
+)
+vim.keymap.set('n', '*',
+    function()
+        -- set the search pattern as * normally would
+        setSearch(vim.fn.expand('<cword>'))
+
+        -- if a count was supplied, execute * normally and exit
+        if vim.v.count > 0 then
+            vim.cmd('normal! ' .. vim.v.count .. '*<CR>')
+        else
+            -- save current window view
+            local windowView = vim.fn.winsaveview()
+
+            -- execute * normally
+            vim.cmd('silent keepjumps normal! *<CR>')
+
+            -- restore the window view
+            if windowView ~= nil and CashModule.options.noStarJump then
+                vim.fn.winrestview(windowView)
+            end
+        end
+
+        -- center the screen
+        if CashModule.options.centerAfterSearch then
+            vim.cmd('normal! zz<CR>')
+        end
+    end
+)
 
 -- export module
 return CashModule
