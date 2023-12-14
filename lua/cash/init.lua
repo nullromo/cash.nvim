@@ -217,20 +217,25 @@ vim.keymap.set('c', '<CR>',
     end,
     { expr = true }
 )
-vim.keymap.set('n', '*',
-    function()
-        -- set the search pattern as * normally would
+
+-- action to run when the user presses * or # from normal mode
+local starPoundAction = function(usingStar)
+    return function()
+        -- choose the key pressed based on the argument
+        local keyPressed = usingStar and '*' or '#'
+
+        -- set the search pattern as */# normally would
         setSearch(vim.fn.expand('<cword>'))
 
-        -- if a count was supplied, execute * normally and exit
+        -- if a count was supplied, execute */# normally and exit
         if vim.v.count > 0 then
-            vim.cmd('normal! ' .. vim.v.count .. '*<CR>')
+            vim.cmd('normal! ' .. vim.v.count .. keyPressed .. '<CR>')
         else
             -- save current window view
             local windowView = vim.fn.winsaveview()
 
-            -- execute * normally
-            vim.cmd('silent keepjumps normal! *<CR>')
+            -- execute */# normally
+            vim.cmd('silent keepjumps normal! ' .. keyPressed .. '<CR>')
 
             -- restore the window view
             if windowView ~= nil and CashModule.options.disableStarPoundJump then
@@ -243,7 +248,10 @@ vim.keymap.set('n', '*',
             vim.cmd('normal! zz<CR>')
         end
     end
-)
+end
+
+vim.keymap.set('n', '*', starPoundAction(true))
+vim.keymap.set('n', '#', starPoundAction(false))
 
 -- export module
 return CashModule
