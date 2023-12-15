@@ -1,4 +1,4 @@
-local options = require('options')
+local options = require('cash.options')
 
 -- create module object for export
 local CashModule = {}
