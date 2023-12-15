@@ -1,4 +1,5 @@
 local options = require('cash.options')
+local keymaps = require('cash.keymaps')
 
 -- create module object for export
 local CashModule = {}
@@ -59,6 +60,9 @@ CashModule.setup = function(opts)
 
     -- set initial plugin state
     CashModule.initializeData()
+
+    -- set up keymaps
+    keymaps.setUpKeymaps()
 end
 
 -- initializes the state of the module
