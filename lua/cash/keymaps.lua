@@ -1,8 +1,6 @@
-local cash = require('cash')
-
 local keymaps = {}
 
-keymaps.setUpKeymaps = function()
+keymaps.setUpKeymaps = function(cash)
     -- set the cash register switching keymap. Use ?<number> to swap to the
     -- <number>-th search pattern
     vim.keymap.set('n', '?', function()

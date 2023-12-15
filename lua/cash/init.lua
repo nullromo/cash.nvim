@@ -62,7 +62,7 @@ CashModule.setup = function(opts)
     CashModule.initializeData()
 
     -- set up keymaps
-    keymaps.setUpKeymaps()
+    keymaps.setUpKeymaps(CashModule)
 end
 
 -- initializes the state of the module
