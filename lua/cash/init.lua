@@ -40,10 +40,12 @@ CashModule.setup = function(opts)
     opts = opts or {}
 
     -- set default options if not already set
+    opts.centerAfterSearch = opts.centerAfterSearch or options.defaultOptions.centerAfterSearch
     opts.colors = opts.colors or options.defaultOptions.colors
     opts.colors.defaultFG = opts.colors.defaultFG or options.defaultOptions.colors.defaultFG
     opts.colors.defaultBG = opts.colors.defaultBG or options.defaultOptions.colors.defaultBG
     opts.colors.highlightColors = opts.colors.highlightColors or options.defaultOptions.colors.highlightColors
+    opts.disableStarPoundJump = opts.disableStarPoundJump or opts.defaultOptions.disableStarPoundJump
     opts.respectHLSearch = opts.respectHLSearch or opts.defaultOptions.respectHLSearch
 
     -- validate options
