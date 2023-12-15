@@ -1,6 +1,6 @@
 local cash = require('cash')
 
-const keymaps = {}
+local keymaps = {}
 
 keymaps.setUpKeymaps = function()
     -- set the cash register switching keymap. Use ?<number> to swap to the
