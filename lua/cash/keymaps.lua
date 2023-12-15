@@ -5,7 +5,7 @@ keymaps.setUpKeymaps = function(cash)
     -- <number>-th search pattern
     vim.keymap.set('n', '?', function()
         -- get a character from the user
-        vim.notify('Enter a digit to choose a cash registers')
+        vim.notify('Enter a digit to choose a cash register')
         local userNumber = tonumber(vim.fn.nr2char(vim.fn.getchar()))
 
         -- if the user didn't enter a number, do nothing
