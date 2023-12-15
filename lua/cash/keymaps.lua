@@ -99,6 +99,13 @@ keymaps.setUpKeymaps = function(cash)
         end,
         { expr = true }
     )
+
+    -- clear all searches and start back at index 1
+    vim.api.nvim_create_user_command(
+        'ResetCashRegisters',
+        cash.resetCashRegisters,
+        { bang = true }
+    )
 end
 
 return keymaps

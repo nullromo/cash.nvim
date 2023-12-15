@@ -116,7 +116,7 @@ CashModule.setCashRegister = function(newIndex)
 end
 
 -- clear all searches and start back at index 1
-CashModule.clearAllSearches = function()
+CashModule.resetCashRegisters = function()
     -- clear current search
     CashModule.setSearch('')
 

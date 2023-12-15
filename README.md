@@ -58,7 +58,7 @@ To clear the contents of the working cash register, use `:clc`. This will also
 set Vim's search to an empty string.
 
 To clear all cash registers and reset the plugin to its initial state, use the
-`:ClearSearches` command. This will set Vim's search register to an empty string
+`:ResetCashRegisters` command. This will set Vim's search register to an empty string
 and clear the contents of all cash registers.
 
 ## 💱 Customization
