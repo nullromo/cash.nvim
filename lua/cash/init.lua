@@ -64,7 +64,7 @@ end
 
 -- sets the given string as the search pattern for the current index. This
 -- function should be called whenever the user performs a search
-local setSearch = function(searchString)
+CashModule.setSearch = function(searchString)
     -- the / register will be set when the user searches, but we also need a
     -- way to search for nothing to clear the search
     if searchString == '' then
@@ -141,7 +141,15 @@ end
 -- initializes the state of the module
 CashModule.initialize = function()
     CashModule.state = generateDefaultState()
-    setSearch('')
+    CashModule.setSearch('')
+end
+
+local deleteMatch = function(index)
+    local matchID = CashModule.state.matchIDs[index]
+    if matchID ~= nil and matchID ~= -1 then
+        vim.fn.matchdelete(matchID)
+        CashModule.state.matchIDs[index] = nil
+    end
 end
 
 -- sets the active cash register
@@ -151,11 +159,7 @@ CashModule.setCashRegister = function(newIndex)
     local newPattern = CashModule.state.cashRegisters[newIndex]
 
     -- delete the match that was highlighting the newIndex-th pattern
-    local matchID = CashModule.state.matchIDs[newIndex]
-    if matchID ~= nil and matchID ~= -1 then
-        vim.fn.matchdelete(matchID)
-        CashModule.state.matchIDs[newIndex] = nil
-    end
+    deleteMatch(newIndex)
 
     -- add a match for the old search highlight
     CashModule.state.matchIDs[CashModule.state.currentIndex] = vim.fn.matchadd(
@@ -209,7 +213,7 @@ vim.keymap.set('c', '<CR>',
         local commandType = vim.fn.getcmdtype()
         if commandType == '/' or commandType == '?' then
             -- update Cash.nvim for the new search
-            setSearch(vim.fn.getcmdline())
+            CashModule.setSearch(vim.fn.getcmdline())
         end
 
         -- execute the command as normal
@@ -225,7 +229,7 @@ local starPoundAction = function(usingStar)
         local keyPressed = usingStar and '*' or '#'
 
         -- set the search pattern as */# normally would
-        setSearch(vim.fn.expand('<cword>'))
+        CashModule.setSearch(vim.fn.expand('<cword>'))
 
         -- if a count was supplied, execute */# normally and exit
         if vim.v.count > 0 then
@@ -250,8 +254,90 @@ local starPoundAction = function(usingStar)
     end
 end
 
+-- set keymaps for * and # to update module state
 vim.keymap.set('n', '*', starPoundAction(true))
 vim.keymap.set('n', '#', starPoundAction(false))
 
+-- Use clc in command mode to clear the search
+vim.keymap.set(
+    'c',
+    'clc<CR>',
+    function()
+        -- check which command line the command was entered in
+        local commandType = vim.fn.getcmdtype()
+
+        -- if it was entered in ex mode
+        if commandType == ':' then
+            -- clear the current search
+            CashModule.setSearch('')
+
+            -- exit ex mode normally
+            return '<CR>'
+        end
+
+        -- if it was entered in a search command
+        if commandType == '/' or commandType == '?' then
+            -- search for the literal string
+            CashModule.setSearch('clc')
+        end
+
+        -- exit the search normally
+        return 'clc<CR>'
+    end,
+    { expr = true }
+)
+
+-- clear all searches and start back at index 1
+CashModule.clearAllSearches = function()
+    -- clear current search
+    CashModule.setSearch('')
+
+    -- reset search index to 1
+    CashModule.setCashRegister(1)
+
+    -- remove all leftover match highlights
+    for i = 1, 9 do
+        deleteMatch(i)
+    end
+
+    -- re-initialize module state
+    CashModule.initialize()
+end
+
+-- print debug info
+CashModule.printDebugInfo = function()
+    local s = ''
+    for i = 1, 9 do
+        local x = CashModule.state.cashRegisters[i]
+        if x == nil then
+            s = s .. 'nil' .. ', '
+        else
+            s = s .. x .. ', '
+        end
+    end
+    local z = ''
+    for i = 1, 9 do
+        local x = CashModule.state.matchIDs[i]
+        if x == nil then
+            z = z .. 'nil' .. ', '
+        else
+            z = z .. x .. ', '
+        end
+    end
+    vim.notify('index: ' .. CashModule.state.currentIndex .. ' table: ' .. s .. ' : ' .. z)
+end
+
 -- export module
 return CashModule
+
+-- TODO: make a debug function that shows all the colors in a temporary buffer
+-- debug
+--vim.fn.matchadd('SearchPattern1', 'SearchPattern1', -1)
+--vim.fn.matchadd('SearchPattern2', 'SearchPattern2', -1)
+--vim.fn.matchadd('SearchPattern3', 'SearchPattern3', -1)
+--vim.fn.matchadd('SearchPattern4', 'SearchPattern4', -1)
+--vim.fn.matchadd('SearchPattern5', 'SearchPattern5', -1)
+--vim.fn.matchadd('SearchPattern6', 'SearchPattern6', -1)
+--vim.fn.matchadd('SearchPattern7', 'SearchPattern7', -1)
+--vim.fn.matchadd('SearchPattern8', 'SearchPattern8', -1)
+--vim.fn.matchadd('SearchPattern9', 'SearchPattern9', -1)
