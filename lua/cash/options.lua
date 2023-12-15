@@ -28,6 +28,8 @@ options.defaultOptions = {
     -- setting to control whether or not using * or # from normal mode will
     -- jump to the next occurrence. Vim will jump by default
     disableStarPoundJump = true,
+    -- force disable Vim's hlsearch option
+    respectHLSearch = false,
 }
 
 options.validateOptions = function(opts)
@@ -64,6 +66,8 @@ options.validateOptions = function(opts)
             end
         elseif key1 == 'disableStarPoundJump' then
             util.checkType(value1, name1 .. '.disableStarPoundJump', 'boolean')
+        elseif key1 == 'respectHLSearch' then
+            util.checkType(value1, name1 .. '.respectHLSearch', 'boolean')
         else
             error('"opts.' .. key1 .. '" ' .. constants.invalidOptionMessage)
         end

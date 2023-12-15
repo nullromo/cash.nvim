@@ -23,11 +23,6 @@ TODO
 
 Cash.nvim will overwrite the default behavior of the <kbd>?</kbd> key.
 
-## 🏦 Configuration Requirements
-
-In order for this plugin to function as intended, you need to have `hlsearch`
-enabled. To do this, set `vim.opt.hlsearch = true`.
-
 ## 💵 How to Use
 
 ### Search Normally
@@ -97,4 +92,4 @@ TODO
 
 TODO add tips here about my custom + mapping and my nzz mappings
 
-💴💷
+💴💷🏦
