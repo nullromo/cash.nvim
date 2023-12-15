@@ -135,11 +135,11 @@ CashModule.setup = function(options)
     end
 
     -- set initial plugin state
-    CashModule.initialize()
+    CashModule.initializeData()
 end
 
 -- initializes the state of the module
-CashModule.initialize = function()
+CashModule.initializeData = function()
     CashModule.state = generateDefaultState()
     CashModule.setSearch('')
 end
@@ -301,7 +301,7 @@ CashModule.clearAllSearches = function()
     end
 
     -- re-initialize module state
-    CashModule.initialize()
+    CashModule.initializeData()
 end
 
 -- print debug info
