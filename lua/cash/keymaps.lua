@@ -8,6 +8,9 @@ keymaps.setUpKeymaps = function(cash)
         vim.notify('Enter a digit to choose a cash register')
         local userNumber = tonumber(vim.fn.nr2char(vim.fn.getchar()))
 
+        -- clear the command line
+        vim.api.nvim_echo({{'', ''}}, false, {})
+
         -- if the user didn't enter a number, do nothing
         if userNumber == nil then
             vim.notify('Error: you must enter a digit to select a cash register')
