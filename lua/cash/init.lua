@@ -1,5 +1,6 @@
 local options = require('cash.options')
 local keymaps = require('cash.keymaps')
+local util = require('cash.util')
 
 -- create module object for export
 local CashModule = {}
@@ -17,7 +18,7 @@ end
 local deleteMatch = function(index)
     local matchID = CashModule.state.matchIDs[index]
     if matchID ~= nil and matchID ~= -1 then
-        vim.fn.matchdelete(matchID)
+        util.wrappers.matchdelete(matchID)
         CashModule.state.matchIDs[index] = nil
     end
 end
