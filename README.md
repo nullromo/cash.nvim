@@ -53,10 +53,10 @@ To switch to a different cash register, press <kbd>?</kbd> followed by a single
 digit. This will change the working cash register to the specified number. For
 example, use <kbd>?</kbd><kbd>2</kbd> to switch to cash register 2.
 
-Once you change cash registers, the search highlighting of the old cash
-register will remain on the screen. You can then perform a new search
-independent of the previous one. Any search you perform will always overwrite
-the contents of the working cash register.
+Once you change cash registers, the search highlighting of the old cash register
+will remain on the screen. You can then perform a new search independent of the
+previous one. Any search you perform will always overwrite the contents of the
+working cash register.
 
 Jumping always jumps between occurrences that match the contents of the working
 cash register, skipping over matches for other cash registers. If you want to
@@ -127,17 +127,17 @@ highlight colors that do not have a `bg` or `fg` color specified, respectively.
 
 This is a table of 9 values, each with a `bg` and `fg` field. These define the
 highlight colors for each of the 9 available cash registers. If a `bg` or `fg`
-value is not specified in one of these entries, then the
-`defaultBG`/`defaultFG` color will be used.
+value is not specified in one of these entries, then the `defaultBG`/`defaultFG`
+color will be used.
 
 Colors should be of the form `'#RRGGBB'`.
 
 ### `disableStarPoundJump`
 
 By default, Vim will jump you to the next occurrence of a search term if you
-initiate the search using <kbd>\*</kbd> or <kbd>#</kbd>. Cash.nvim disables
-this by default. You can preserve Vim's default behavior by setting this option
-to `false`.
+initiate the search using <kbd>\*</kbd> or <kbd>#</kbd>. Cash.nvim disables this
+by default. You can preserve Vim's default behavior by setting this option to
+`false`.
 
 ### `respectHLSearch`
 
@@ -148,22 +148,37 @@ want your `hlsearch` setting to be left as-is, then you can set this option to
 
 ## 🤑 TODO List
 
-- Make current number and current color display next to clock.
-- Create better debug function other than current `<Leader>v`.
-- Debug case sensitivity and try to respect `smartcase` and `ignorecase`.
-  Right now, searching for `asdf` in cash register 1 will match `Asdf`,
-  `ASDF`, etc, but then switching to cash register 2 will make the
-  `matchadd()` require an exact case match.
-- Add `?+` and `?-` (or `?n` and `?p`, or `?h` and `?l`, or `?j` and `?k`, or
-  `?/` and `??`) mappings to move laterally between cash registers.
-- Add argument to `:ResetCashRegisters` command to clear a given cash register.
-- Make `:clc` into a function to users can map it how they want.
-- Handle global `matchadd`. Everything is mega-broken when you try to use more
-  than 1 window : (
-- Make sure `:ResetCashRegisters` can finish executing even if it hits an error
-  during `matchdelete`. It should be sure to clear the match ID array too.
-- Allow the user to customize their `?` key.
-- use 💴, 💷, and 🏦 in the readme somewhere
+-   Make current number and current color display next to clock.
+-   Create better debug function other than current `<Leader>v`.
+-   Debug case sensitivity and try to respect `smartcase` and `ignorecase`.
+    Right now, searching for `asdf` in cash register 1 will match `Asdf`,
+    `ASDF`, etc, but then switching to cash register 2 will make the
+    `matchadd()` require an exact case match.
+-   Add `?+` and `?-` (or `?n` and `?p`, or `?h` and `?l`, or `?j` and `?k`, or
+    `?/` and `??`) mappings to move laterally between cash registers.
+-   Add argument to `:ResetCashRegisters` command to clear a given cash
+    register.
+-   Make `:clc` into a function to users can map it how they want.
+-   Handle global `matchadd`. Everything is mega-broken when you try to use more
+    than 1 window : (
+-   Make sure `:ResetCashRegisters` can finish executing even if it hits an
+    error during `matchdelete`. It should be sure to clear the match ID array
+    too.
+-   Allow the user to customize their `?` key.
+-   use 💴, 💷, and 🏦 in the readme somewhere
+-   Make a debug function that shows all the colors in a temporary buffer.
+    ```
+    -- debug
+    --vim.fn.matchadd('SearchPattern1', 'SearchPattern1', -1)
+    --vim.fn.matchadd('SearchPattern2', 'SearchPattern2', -1)
+    --vim.fn.matchadd('SearchPattern3', 'SearchPattern3', -1)
+    --vim.fn.matchadd('SearchPattern4', 'SearchPattern4', -1)
+    --vim.fn.matchadd('SearchPattern5', 'SearchPattern5', -1)
+    --vim.fn.matchadd('SearchPattern6', 'SearchPattern6', -1)
+    --vim.fn.matchadd('SearchPattern7', 'SearchPattern7', -1)
+    --vim.fn.matchadd('SearchPattern8', 'SearchPattern8', -1)
+    --vim.fn.matchadd('SearchPattern9', 'SearchPattern9', -1)
+    ```
 
 ## 🪙 Other Tips
 
@@ -172,19 +187,18 @@ functionality, but might be useful.
 
 ### Add a search term to the current search
 
-When searching in Vim, `\|` is the "or" operator, meaning the pattern
-`foo\|bar` will match occurrences of `foo` and occurrences of `bar`. This
-mapping allows you to search for something, then press <kbd>+</kbd> to start
-searching for something else in addition. It works by starting a new search
-that begins with the contents of the old search register plus a `\|` at the
-end.
+When searching in Vim, `\|` is the "or" operator, meaning the pattern `foo\|bar`
+will match occurrences of `foo` and occurrences of `bar`. This mapping allows
+you to search for something, then press <kbd>+</kbd> to start searching for
+something else in addition. It works by starting a new search that begins with
+the contents of the old search register plus a `\|` at the end.
 
 ```lua
 vim.keymap.set('n', '+', '/<C-r>/\\|')
 ```
 
-By default, the <kbd>+</kbd> key in Vim just moves the cursor down 1 line. It
-is very similar to <kbd>j</kbd>, so it's not that useful. For this reason,
+By default, the <kbd>+</kbd> key in Vim just moves the cursor down 1 line. It is
+very similar to <kbd>j</kbd>, so it's not that useful. For this reason,
 <kbd>+</kbd> is a good candidate for remapping.
 
 ### Center the screen after jumping to a match
