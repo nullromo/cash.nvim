@@ -13,13 +13,13 @@ end
 local wrappers = {}
 
 -- no-throw wrapper for vim matchdelete function
-wrappers.matchdelete = function(matchID)
+wrappers.matchdelete = function(matchID, windowID)
     -- set up return value
     local returnValue = 0
     -- use protected call
     local deleteOK, deleteError = pcall(function()
         -- call underlying vim function
-        returnValue = vim.fn.matchdelete(matchID)
+        returnValue = vim.fn.matchdelete(matchID, windowID)
     end)
     -- report error if necessary
     if not deleteOK then
