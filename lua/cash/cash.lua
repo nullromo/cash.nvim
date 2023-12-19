@@ -12,7 +12,7 @@ local generateDefaultState = function()
 end
 
 -- removes a match from vim based on a cash register index
-local deleteMatch = function(index)
+local deleteMatchFromAllWindows = function(index)
     for windowID, matchIDs in pairs(CashModule.state.windowMatchIDs) do
         local matchID = matchIDs[index]
         if matchID ~= nil and matchID ~= -1 then
@@ -22,16 +22,21 @@ local deleteMatch = function(index)
     end
 end
 
+-- adds a match to just one window. Returns the match ID
+local addMatchToWindow = function(index, windowID)
+    return vim.fn.matchadd(
+        'CashRegister' .. index,
+        CashModule.state.cashRegisters[index],
+        -1, -- use priority lower than search
+        -1, -- automatically choose ID
+        { window = windowID }
+    )
+end
+
 -- adds a match to vim based on a cash register index
-local addMatch = function(index)
+local addMatchToAllWindows = function(index)
     for windowID, matchIDs in pairs(CashModule.state.windowMatchIDs) do
-        matchIDs[index] = vim.fn.matchadd(
-            'CashRegister' .. index,
-            CashModule.state.cashRegisters[index],
-            10, -- use default priority
-            -1, -- automatically choose ID
-            { window = windowID }
-        )
+        matchIDs[index] = addMatchToWindow(index, windowID)
     end
 end
 
@@ -59,10 +64,10 @@ CashModule.setCashRegister = function(newIndex)
     local newPattern = CashModule.state.cashRegisters[newIndex]
 
     -- delete the match that was highlighting the newIndex-th pattern
-    deleteMatch(newIndex)
+    deleteMatchFromAllWindows(newIndex)
 
     -- add a new match highlighting the currentIndex-th pattern
-    addMatch(CashModule.state.currentIndex)
+    addMatchToAllWindows(CashModule.state.currentIndex)
 
     -- change the active search highlight color
     vim.api.nvim_set_hl(0, 'Search', {
@@ -95,7 +100,7 @@ CashModule.resetCashRegisters = function()
 
     -- remove all leftover match highlights
     for i = 1, 9 do
-        deleteMatch(i)
+        deleteMatchFromAllWindows(i)
     end
 
     -- re-initialize module state
@@ -137,14 +142,34 @@ vim.api.nvim_create_autocmd({'VimEnter', 'WinEnter'}, {
 
         -- create empty match ID table
         if windowID ~= nil then
-            CashModule.state.windowMatchIDs[windowID] = {
-                nil, nil, nil, nil, nil, nil, nil, nil, nil
-            }
+            if CashModule.state.windowMatchIDs[windowID] == nil then
+                CashModule.state.windowMatchIDs[windowID] = {
+                    nil, nil, nil, nil, nil, nil, nil, nil, nil
+                }
+            end
         else
             vim.notify(
                 'Could not get window ID from VimEnter/WinEnter event.',
                 vim.log.levels.WARN
             )
+        end
+
+        -- add all the necessary highlights to the newly opened window
+        for index = 1, 9 do
+            -- convenience variables
+            local pattern = CashModule.state.cashRegisters[index]
+            local matchIDs = CashModule.state.windowMatchIDs[windowID]
+
+            if index == CashModule.state.currentIndex then
+                -- do not add a match for the current index
+            elseif pattern == nil or pattern == '' then
+                -- do not add a match if the cash register is empty
+            elseif matchIDs[index] ~= nil and matchIDs[index] ~= -1 then
+                -- do not add a match if it's already set up
+            else
+                -- add the match to the window
+                matchIDs[index] = addMatchToWindow(index, windowID)
+            end
         end
     end
 })
