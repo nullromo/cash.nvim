@@ -25,10 +25,12 @@ options.defaultOptions = {
             { bg = constants.colors.waveBlue2, fg = constants.colors.fujiWhite },
         },
     },
-    -- setting to control whether or not using * or # from normal mode will
-    -- jump to the next occurrence. Vim will jump by default
+    -- control whether or not using * or # from normal mode will jump to the
+    -- next occurrence. Vim will jump by default; this plugin disables the jump
+    -- by default
     disableStarPoundJump = true,
-    -- force disable Vim's hlsearch option
+    -- leave vim's hlsearch setting alone. This plugin overrides hlsearch by
+    -- default
     respectHLSearch = false,
 }
 
