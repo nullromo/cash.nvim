@@ -108,43 +108,15 @@ register to an empty string and clear the contents of all cash registers.
 }
 ```
 
-### `centerAfterSearch`
+### Options Table
 
-Each time you perform a search, Cash.nvim will center the current window for
-you. If you don't like this behavior, you can disable it by setting this option
-to `false`.
-
-### `colors`
-
-This table controls the highlight colors for Cash.nvim.
-
-#### `defaultBG` and `defaultFG`
-
-These will be the highlight background and foreground, respectively for
-highlight colors that do not have a `bg` or `fg` color specified, respectively.
-
-#### `highlightColors`
-
-This is a table of 9 values, each with a `bg` and `fg` field. These define the
-highlight colors for each of the 9 available cash registers. If a `bg` or `fg`
-value is not specified in one of these entries, then the `defaultBG`/`defaultFG`
-color will be used.
-
-Colors should be of the form `'#RRGGBB'`.
-
-### `disableStarPoundJump`
-
-By default, Vim will jump you to the next occurrence of a search term if you
-initiate the search using <kbd>\*</kbd> or <kbd>#</kbd>. Cash.nvim disables this
-by default. You can preserve Vim's default behavior by setting this option to
-`false`.
-
-### `respectHLSearch`
-
-In order to enable search highlighting for the current search, you need to
-enable the `hlsearch` Vim option. Cash.nvim does this automatically, but if you
-want your `hlsearch` setting to be left as-is, then you can set this option to
-`true`.
+| Option                                    | Data Type                              | Default   | Description                                                                                                                                                                                                                                                                                                                |
+| ----------------------------------------- | -------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `centerAfterSearch`                       | boolean                                | `true`    | Each time you perform a search, Cash.nvim will center the current window for you.<br />If you don't like this behavior, you can disable it by setting this option to `false`.                                                                                                                                              |
+| `colors.defaultBG` and `colors.defaultFG` | string (`'#RRGGBB'`)                   | see above | These will be the highlight background and foreground, respectively, for highlight colors that do not have a `bg` or `fg` color specified, respectively.                                                                                                                                                                   |
+| `colors.highlightColors`                  | list of `{ bg = string, fg = string }` | see above | This is a table of 9 values, each with a `bg` and `fg` field. These define the highlight colors for each of the 9 available cash registers. If a `bg` or `fg` value is not specified in one of these entries, then the `colors.defaultBG`/`colors.defaultFG` color will be used. Colors should be of the form `'#RRGGBB'`. |
+| `disableStarPoundJump`                    | boolean                                | `true`    | By default, Vim will jump you to the next occurrence of a search term if you initiate the search using <kbd>\*</kbd> or <kbd>#</kbd>. Cash.nvim disables this by default. You can preserve Vim's default behavior by setting this option to `false`.                                                                       |
+| `respectHLSearch`                         | boolean                                | `false`   | In order to enable search highlighting for the current search, you need to enable the `hlsearch` Vim option. Cash.nvim does this automatically, but if you want your `hlsearch` setting to be left as-is, then you can set this option to `true`.                                                                          |
 
 ## 🤑 TODO List
 
