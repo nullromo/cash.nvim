@@ -15,6 +15,10 @@ each cash register.
 Use <kbd>?</kbd>`<number>` (1-9) to select a cash register. This gives you 9
 individual searches that can be highlighted simultaneously.
 
+## 🪙 Video Demo
+
+https://github.com/nullromo/cash.nvim/assets/8991581/5c29fb81-a3e8-4de2-8c15-9acf62d2a99d
+
 ## 💵 How to Install
 
 Lazy.nvim config:
@@ -118,7 +122,7 @@ register to an empty string and clear the contents of all cash registers.
 | `disableStarPoundJump`                    | boolean                                | `true`    | By default, Vim will jump you to the next occurrence of a search term if you initiate the search using <kbd>\*</kbd> or <kbd>#</kbd>. Cash.nvim disables this by default. You can preserve Vim's default behavior by setting this option to `false`.                                                                       |
 | `respectHLSearch`                         | boolean                                | `false`   | In order to enable search highlighting for the current search, you need to enable the `hlsearch` Vim option. Cash.nvim does this automatically, but if you want your `hlsearch` setting to be left as-is, then you can set this option to `true`.                                                                          |
 
-## 🪙 Other Tips
+## 💴 Other Tips
 
 Here are some other searching tips that are not part of Cash.nvim's
 functionality, but might be useful.
@@ -196,4 +200,3 @@ appreciated!
     register.
 -   Make `:clc` into a function to users can map it how they want.
 -   Allow the user to customize their `?` key.
--   Use 💴 in the readme somewhere
