@@ -15,7 +15,7 @@ each cash register.
 Use <kbd>?</kbd>`<number>` (1-9) to select a cash register. This gives you 9
 individual searches that can be highlighted simultaneously.
 
-## 💲 How to Install
+## 💵 How to Install
 
 Lazy.nvim config:
 
@@ -34,7 +34,7 @@ Lazy.nvim config:
 
 Cash.nvim will overwrite the default behavior of the <kbd>?</kbd> key.
 
-## 💵 How to Use
+## 💲 How to Use
 
 ### Search Normally
 
@@ -118,37 +118,6 @@ register to an empty string and clear the contents of all cash registers.
 | `disableStarPoundJump`                    | boolean                                | `true`    | By default, Vim will jump you to the next occurrence of a search term if you initiate the search using <kbd>\*</kbd> or <kbd>#</kbd>. Cash.nvim disables this by default. You can preserve Vim's default behavior by setting this option to `false`.                                                                       |
 | `respectHLSearch`                         | boolean                                | `false`   | In order to enable search highlighting for the current search, you need to enable the `hlsearch` Vim option. Cash.nvim does this automatically, but if you want your `hlsearch` setting to be left as-is, then you can set this option to `true`.                                                                          |
 
-## TODO List
-
--   Make current number and current color display next to clock.
--   Create better debug function other than current `<Leader>v`.
-    -   Create a way to display everything about the state of the plugin for
-        debug purposes.
-    -   Make a debug function that shows all the colors in a temporary buffer.
-        ```
-        -- debug
-        --vim.fn.matchadd('SearchPattern1', 'SearchPattern1', -1)
-        --vim.fn.matchadd('SearchPattern2', 'SearchPattern2', -1)
-        --vim.fn.matchadd('SearchPattern3', 'SearchPattern3', -1)
-        --vim.fn.matchadd('SearchPattern4', 'SearchPattern4', -1)
-        --vim.fn.matchadd('SearchPattern5', 'SearchPattern5', -1)
-        --vim.fn.matchadd('SearchPattern6', 'SearchPattern6', -1)
-        --vim.fn.matchadd('SearchPattern7', 'SearchPattern7', -1)
-        --vim.fn.matchadd('SearchPattern8', 'SearchPattern8', -1)
-        --vim.fn.matchadd('SearchPattern9', 'SearchPattern9', -1)
-        ```
--   Debug case sensitivity and try to respect `smartcase` and `ignorecase`.
-    -   Right now, searching for `asdf` in cash register 1 will match `Asdf`,
-        `ASDF`, etc, but then switching to cash register 2 will make the
-        `matchadd()` require an exact case match.
--   Add `?+` and `?-` (or `?n` and `?p`, or `?h` and `?l`, or `?j` and `?k`, or
-    `?/` and `??`) mappings to move laterally between cash registers.
--   Add argument to `:ResetCashRegisters` command to clear a given cash
-    register.
--   Make `:clc` into a function to users can map it how they want.
--   Allow the user to customize their `?` key.
--   Use 💷 in the readme somewhere
-
 ## 🪙 Other Tips
 
 Here are some other searching tips that are not part of Cash.nvim's
@@ -186,7 +155,9 @@ This can provide a more consistent experience when paired with Cash.nvim's
 
 See [LICENSE](./LICENSE) and [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-## 💴 Special Thanks
+I am very open to feedback and criticism.
+
+## 💷 Special Thanks
 
 `<Your name here>`
 
@@ -195,3 +166,34 @@ See [LICENSE](./LICENSE) and [CONTRIBUTING.md](./CONTRIBUTING.md).
 To say thanks with some **_cash_**, use
 [@Kyle-Kovacs on Venmo](https://venmo.com/u/Kyle-Kovacs). Your donation is
 appreciated!
+
+## TODO List
+
+-   Make current number and current color display next to clock.
+-   Create better debug function other than current `<Leader>v`.
+    -   Create a way to display everything about the state of the plugin for
+        debug purposes.
+    -   Make a debug function that shows all the colors in a temporary buffer.
+        ```
+        -- debug
+        --vim.fn.matchadd('SearchPattern1', 'SearchPattern1', -1)
+        --vim.fn.matchadd('SearchPattern2', 'SearchPattern2', -1)
+        --vim.fn.matchadd('SearchPattern3', 'SearchPattern3', -1)
+        --vim.fn.matchadd('SearchPattern4', 'SearchPattern4', -1)
+        --vim.fn.matchadd('SearchPattern5', 'SearchPattern5', -1)
+        --vim.fn.matchadd('SearchPattern6', 'SearchPattern6', -1)
+        --vim.fn.matchadd('SearchPattern7', 'SearchPattern7', -1)
+        --vim.fn.matchadd('SearchPattern8', 'SearchPattern8', -1)
+        --vim.fn.matchadd('SearchPattern9', 'SearchPattern9', -1)
+        ```
+-   Debug case sensitivity and try to respect `smartcase` and `ignorecase`.
+    -   Right now, searching for `asdf` in cash register 1 will match `Asdf`,
+        `ASDF`, etc, but then switching to cash register 2 will make the
+        `matchadd()` require an exact case match.
+-   Add `?+` and `?-` (or `?n` and `?p`, or `?h` and `?l`, or `?j` and `?k`, or
+    `?/` and `??`) mappings to move laterally between cash registers.
+-   Add argument to `:ResetCashRegisters` command to clear a given cash
+    register.
+-   Make `:clc` into a function to users can map it how they want.
+-   Allow the user to customize their `?` key.
+-   Use 💴 in the readme somewhere
