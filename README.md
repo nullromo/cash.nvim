@@ -170,33 +170,3 @@ I am very open to feedback and criticism.
 To say thanks with some **_cash_**, use
 [@Kyle-Kovacs on Venmo](https://venmo.com/u/Kyle-Kovacs). Your donation is
 appreciated!
-
-## TODO List
-
--   Make current number and current color display next to clock.
--   Create better debug function other than current `<Leader>v`.
-    -   Create a way to display everything about the state of the plugin for
-        debug purposes.
-    -   Make a debug function that shows all the colors in a temporary buffer.
-        ```
-        -- debug
-        --vim.fn.matchadd('SearchPattern1', 'SearchPattern1', -1)
-        --vim.fn.matchadd('SearchPattern2', 'SearchPattern2', -1)
-        --vim.fn.matchadd('SearchPattern3', 'SearchPattern3', -1)
-        --vim.fn.matchadd('SearchPattern4', 'SearchPattern4', -1)
-        --vim.fn.matchadd('SearchPattern5', 'SearchPattern5', -1)
-        --vim.fn.matchadd('SearchPattern6', 'SearchPattern6', -1)
-        --vim.fn.matchadd('SearchPattern7', 'SearchPattern7', -1)
-        --vim.fn.matchadd('SearchPattern8', 'SearchPattern8', -1)
-        --vim.fn.matchadd('SearchPattern9', 'SearchPattern9', -1)
-        ```
--   Debug case sensitivity and try to respect `smartcase` and `ignorecase`.
-    -   Right now, searching for `asdf` in cash register 1 will match `Asdf`,
-        `ASDF`, etc, but then switching to cash register 2 will make the
-        `matchadd()` require an exact case match.
--   Add `?+` and `?-` (or `?n` and `?p`, or `?h` and `?l`, or `?j` and `?k`, or
-    `?/` and `??`) mappings to move laterally between cash registers.
--   Add argument to `:ResetCashRegisters` command to clear a given cash
-    register.
--   Make `:clc` into a function to users can map it how they want.
--   Allow the user to customize their `?` key.
