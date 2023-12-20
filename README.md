@@ -118,7 +118,7 @@ register to an empty string and clear the contents of all cash registers.
 | `disableStarPoundJump`                    | boolean                                | `true`    | By default, Vim will jump you to the next occurrence of a search term if you initiate the search using <kbd>\*</kbd> or <kbd>#</kbd>. Cash.nvim disables this by default. You can preserve Vim's default behavior by setting this option to `false`.                                                                       |
 | `respectHLSearch`                         | boolean                                | `false`   | In order to enable search highlighting for the current search, you need to enable the `hlsearch` Vim option. Cash.nvim does this automatically, but if you want your `hlsearch` setting to be left as-is, then you can set this option to `true`.                                                                          |
 
-## 🤑 TODO List
+## TODO List
 
 -   Make current number and current color display next to clock.
 -   Create better debug function other than current `<Leader>v`.
@@ -147,7 +147,7 @@ register to an empty string and clear the contents of all cash registers.
     register.
 -   Make `:clc` into a function to users can map it how they want.
 -   Allow the user to customize their `?` key.
--   use 💴, 💷, and 🏦 in the readme somewhere
+-   Use 💷 in the readme somewhere
 
 ## 🪙 Other Tips
 
@@ -181,3 +181,17 @@ vim.keymap.set('n', 'N', 'Nzz')
 
 This can provide a more consistent experience when paired with Cash.nvim's
 `centerAfterSearch` option.
+
+## 🏦 License, Contributing, etc.
+
+See [LICENSE](./LICENSE) and [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## 💴 Special Thanks
+
+`<Your name here>`
+
+## 🤑 Donating
+
+To say thanks with some **_cash_**, use
+[@Kyle-Kovacs on Venmo](https://venmo.com/u/Kyle-Kovacs). Your donation is
+appreciated!
