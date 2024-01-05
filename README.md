@@ -169,6 +169,7 @@ I am very open to feedback and criticism.
 
 ## 🤑 Donating
 
-To say thanks with some **_cash_**, use
+To say thanks with some **_cash_**,
+[sponsor me on GitHub](https://github.com/sponsors/nullromo) or use
 [@Kyle-Kovacs on Venmo](https://venmo.com/u/Kyle-Kovacs). Your donation is
 appreciated!
