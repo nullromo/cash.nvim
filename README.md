@@ -165,7 +165,11 @@ I am very open to feedback and criticism.
 
 ## 💷 Special Thanks
 
-`<Your name here>`
+### Bronze Tier Sponsors
+
+-   🥉 [collindutter](https://github.com/collindutter)
+-   🥉
+    [`<Your name here>`](https://github.com/nullromo/cash.nvim/blob/main/README.md#-donating)
 
 ## 🤑 Donating
 
