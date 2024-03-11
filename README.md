@@ -77,6 +77,15 @@ To clear all cash registers and reset the plugin to its initial state, use the
 `require('cash').resetCashRegisters()` function). This will set Vim's search
 register to an empty string and clear the contents of all cash registers.
 
+### Case Sensitivity
+
+Cash.nvim will respect the `ignorecase` option, but the case sensitivity can be
+overridden in the search pattern as normal using `\c` or `\C` (see `:help /\c`).
+
+_Note: changing the value of the `ignorecase` option will not update the
+highlighting for non-active cash registers. See
+[#4](https://github.com/nullromo/cash.nvim/issues/4) for details_
+
 ## 💱 Customization
 
 ### Default Options

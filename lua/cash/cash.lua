@@ -24,9 +24,31 @@ end
 
 -- adds a match to just one window. Returns the match ID
 local addMatchToWindow = function(index, windowID)
+    -- pattern being matched
+    local pattern = CashModule.state.cashRegisters[index]
+
+    -- if the pattern is blank, do nothing
+    if pattern == '' then
+        return
+    end
+
+    -- explicitMatchCase will be true, false, or nil
+    local explicitMatchCase = nil
+    if string.find(pattern, '\\c') then
+        explicitMatchCase = false
+    elseif string.find(pattern, '\\C') then
+        explicitMatchCase = true
+    end
+
+    -- if the ignorecase option is set, this flag will contain the \c for the
+    -- search pattern. This is only used if \c or \C were not in the pattern
+    local ignoreCaseFlag = vim.opt.ignorecase:get() and '\\c' or '\\C'
+
+    -- set the match. Note the changing the value of ignorecase will not update
+    -- the search highlights for non-active cash registers
     return vim.fn.matchadd(
         'CashRegister' .. index,
-        CashModule.state.cashRegisters[index],
+        (explicitMatchCase == nil and ignoreCaseFlag or '') .. pattern,
         -1, -- use priority lower than search
         -1, -- automatically choose ID
         { window = windowID }
