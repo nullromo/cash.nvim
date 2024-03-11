@@ -84,7 +84,8 @@ overridden in the search pattern as normal using `\c` or `\C` (see `:help /\c`).
 
 _Note: changing the value of the `ignorecase` option will not update the
 highlighting for non-active cash registers. See
-[#4](https://github.com/nullromo/cash.nvim/issues/4) for details_
+[#4](https://github.com/nullromo/cash.nvim/issues/4#issuecomment-1988941540) for
+details_
 
 ## 💱 Customization
 
