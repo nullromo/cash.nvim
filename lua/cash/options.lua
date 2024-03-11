@@ -22,7 +22,10 @@ options.defaultOptions = {
             { bg = constants.colors.oniViolet },
             { bg = constants.colors.autumnGreen },
             { bg = constants.colors.autumnRed },
-            { bg = constants.colors.waveBlue2, fg = constants.colors.fujiWhite },
+            {
+                bg = constants.colors.waveBlue2,
+                fg = constants.colors.fujiWhite,
+            },
         },
     },
     -- control whether or not using * or # from normal mode will jump to the
@@ -48,9 +51,16 @@ options.validateOptions = function(opts)
                 elseif key2 == 'defaultFG' then
                     util.checkType(value2, name2 .. '.defaultFG', 'string')
                 elseif key2 == 'highlightColors' then
-                    util.checkType(value2, 'opts.colors.highlightColors', 'table')
+                    util.checkType(
+                        value2,
+                        'opts.colors.highlightColors',
+                        'table'
+                    )
                     for key3, value3 in ipairs(value2) do
-                        local name3 = name2 .. '.highlightColors[' .. key3 .. ']'
+                        local name3 = name2
+                            .. '.highlightColors['
+                            .. key3
+                            .. ']'
                         util.checkType(value3, name3, 'table')
                         for key4, value4 in pairs(value3) do
                             if key4 == 'bg' then
@@ -58,12 +68,24 @@ options.validateOptions = function(opts)
                             elseif key4 == 'fg' then
                                 util.checkType(value4, name3 .. '.fg', 'string')
                             else
-                                error('"' .. name3 .. '.' .. key4 .. '" ' .. constants.invalidOptionMessage)
+                                error(
+                                    '"'
+                                        .. name3
+                                        .. '.'
+                                        .. key4
+                                        .. '" '
+                                        .. constants.invalidOptionMessage
+                                )
                             end
                         end
                     end
                 else
-                    error('"opts.colors.' .. key2 .. '" ' .. constants.invalidOptionMessage)
+                    error(
+                        '"opts.colors.'
+                            .. key2
+                            .. '" '
+                            .. constants.invalidOptionMessage
+                    )
                 end
             end
         elseif key1 == 'disableStarPoundJump' then

@@ -1,6 +1,6 @@
-local options = require('cash.options')
-local keymaps = require('cash.keymaps')
 local cashModule = require('cash.cash')
+local keymaps = require('cash.keymaps')
+local options = require('cash.options')
 
 -- main setup function for Cash.nvim
 cashModule.setup = function(opts)
@@ -8,13 +8,19 @@ cashModule.setup = function(opts)
     opts = opts or {}
 
     -- set default options if not already set
-    opts.centerAfterSearch = opts.centerAfterSearch or options.defaultOptions.centerAfterSearch
+    opts.centerAfterSearch = opts.centerAfterSearch
+        or options.defaultOptions.centerAfterSearch
     opts.colors = opts.colors or options.defaultOptions.colors
-    opts.colors.defaultFG = opts.colors.defaultFG or options.defaultOptions.colors.defaultFG
-    opts.colors.defaultBG = opts.colors.defaultBG or options.defaultOptions.colors.defaultBG
-    opts.colors.highlightColors = opts.colors.highlightColors or options.defaultOptions.colors.highlightColors
-    opts.disableStarPoundJump = opts.disableStarPoundJump or options.defaultOptions.disableStarPoundJump
-    opts.respectHLSearch = opts.respectHLSearch or options.defaultOptions.respectHLSearch
+    opts.colors.defaultFG = opts.colors.defaultFG
+        or options.defaultOptions.colors.defaultFG
+    opts.colors.defaultBG = opts.colors.defaultBG
+        or options.defaultOptions.colors.defaultBG
+    opts.colors.highlightColors = opts.colors.highlightColors
+        or options.defaultOptions.colors.highlightColors
+    opts.disableStarPoundJump = opts.disableStarPoundJump
+        or options.defaultOptions.disableStarPoundJump
+    opts.respectHLSearch = opts.respectHLSearch
+        or options.defaultOptions.respectHLSearch
 
     -- validate options
     options.validateOptions(opts)
@@ -26,7 +32,10 @@ cashModule.setup = function(opts)
     for i = 1, 9 do
         local bg = opts.colors.highlightColors[i].bg or opts.colors.defaultBG
         local fg = opts.colors.highlightColors[i].fg or opts.colors.defaultFG
-        vim.cmd.highlight('CashRegister' .. i, 'guibg=' .. bg  .. ' guifg=' .. fg)
+        vim.cmd.highlight(
+            'CashRegister' .. i,
+            'guibg=' .. bg .. ' guifg=' .. fg
+        )
     end
 
     -- set initial plugin state

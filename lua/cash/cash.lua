@@ -71,8 +71,10 @@ CashModule.setCashRegister = function(newIndex)
 
     -- change the active search highlight color
     vim.api.nvim_set_hl(0, 'Search', {
-        fg = CashModule.opts.colors.highlightColors[newIndex].fg or CashModule.opts.colors.defaultFG,
-        bg = CashModule.opts.colors.highlightColors[newIndex].bg or CashModule.opts.colors.defaultBG,
+        fg = CashModule.opts.colors.highlightColors[newIndex].fg
+            or CashModule.opts.colors.defaultFG,
+        bg = CashModule.opts.colors.highlightColors[newIndex].bg
+            or CashModule.opts.colors.defaultBG,
     })
 
     -- if there is no search pattern, use an empty string
@@ -131,11 +133,18 @@ CashModule.printDebugInfo = function()
         end
         z = z .. '\n'
     end
-    vim.notify('index: ' .. CashModule.state.currentIndex .. '\ncash registers: ' .. s .. '\nwindowMatchIDs: ' .. z)
+    vim.notify(
+        'index: '
+            .. CashModule.state.currentIndex
+            .. '\ncash registers: '
+            .. s
+            .. '\nwindowMatchIDs: '
+            .. z
+    )
 end
 
 -- whenever a new window is opened, give that window a blank set of match IDs
-vim.api.nvim_create_autocmd({'VimEnter', 'WinEnter'}, {
+vim.api.nvim_create_autocmd({ 'VimEnter', 'WinEnter' }, {
     callback = function()
         -- get the window ID for the window that was just entered
         local windowID = tonumber(vim.fn.win_getid())
@@ -144,7 +153,15 @@ vim.api.nvim_create_autocmd({'VimEnter', 'WinEnter'}, {
         if windowID ~= nil then
             if CashModule.state.windowMatchIDs[windowID] == nil then
                 CashModule.state.windowMatchIDs[windowID] = {
-                    nil, nil, nil, nil, nil, nil, nil, nil, nil
+                    nil,
+                    nil,
+                    nil,
+                    nil,
+                    nil,
+                    nil,
+                    nil,
+                    nil,
+                    nil,
                 }
             end
         else
@@ -171,11 +188,11 @@ vim.api.nvim_create_autocmd({'VimEnter', 'WinEnter'}, {
                 matchIDs[index] = addMatchToWindow(index, windowID)
             end
         end
-    end
+    end,
 })
 
 -- whenever a window is closed, stop tracking match IDs for it
-vim.api.nvim_create_autocmd({'WinClosed'}, {
+vim.api.nvim_create_autocmd({ 'WinClosed' }, {
     callback = function(event)
         -- event.match holds the value of <amatch>, which in this case gets set
         -- to the window ID of the window that was just closed
@@ -190,7 +207,7 @@ vim.api.nvim_create_autocmd({'WinClosed'}, {
                 vim.log.levels.WARN
             )
         end
-    end
+    end,
 })
 
 return CashModule

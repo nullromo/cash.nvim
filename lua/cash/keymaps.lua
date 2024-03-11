@@ -9,11 +9,13 @@ keymaps.setUpKeymaps = function(cash)
         local userNumber = tonumber(vim.fn.nr2char(vim.fn.getchar()))
 
         -- clear the command line
-        vim.api.nvim_echo({{'', ''}}, false, {})
+        vim.api.nvim_echo({ { '', '' } }, false, {})
 
         -- if the user didn't enter a number, do nothing
         if userNumber == nil then
-            vim.notify('Error: you must enter a digit to select a cash register')
+            vim.notify(
+                'Error: you must enter a digit to select a cash register'
+            )
             return
         end
 
@@ -23,20 +25,17 @@ keymaps.setUpKeymaps = function(cash)
 
     -- run custom functions after searching. Whenever the user performs a normal
     -- search, we need to make sure to update some things
-    vim.keymap.set('c', '<CR>',
-        function()
-            -- check if the current command is a search command
-            local commandType = vim.fn.getcmdtype()
-            if commandType == '/' or commandType == '?' then
-                -- update Cash.nvim for the new search
-                cash.setSearch(vim.fn.getcmdline())
-            end
+    vim.keymap.set('c', '<CR>', function()
+        -- check if the current command is a search command
+        local commandType = vim.fn.getcmdtype()
+        if commandType == '/' or commandType == '?' then
+            -- update Cash.nvim for the new search
+            cash.setSearch(vim.fn.getcmdline())
+        end
 
-            -- execute the command as normal
-            return '<CR>'
-        end,
-        { expr = true }
-    )
+        -- execute the command as normal
+        return '<CR>'
+    end, { expr = true })
 
     -- action to run when the user presses * or # from normal mode
     local starPoundAction = function(usingStar)
@@ -75,33 +74,28 @@ keymaps.setUpKeymaps = function(cash)
     vim.keymap.set('n', '#', starPoundAction(false))
 
     -- Use clc in command mode to clear the search
-    vim.keymap.set(
-        'c',
-        'clc<CR>',
-        function()
-            -- check which command line the command was entered in
-            local commandType = vim.fn.getcmdtype()
+    vim.keymap.set('c', 'clc<CR>', function()
+        -- check which command line the command was entered in
+        local commandType = vim.fn.getcmdtype()
 
-            -- if it was entered in ex mode
-            if commandType == ':' then
-                -- clear the current search
-                cash.setSearch('')
+        -- if it was entered in ex mode
+        if commandType == ':' then
+            -- clear the current search
+            cash.setSearch('')
 
-                -- exit ex mode normally
-                return '<CR>'
-            end
+            -- exit ex mode normally
+            return '<CR>'
+        end
 
-            -- if it was entered in a search command
-            if commandType == '/' or commandType == '?' then
-                -- search for the literal string
-                cash.setSearch('clc')
-            end
+        -- if it was entered in a search command
+        if commandType == '/' or commandType == '?' then
+            -- search for the literal string
+            cash.setSearch('clc')
+        end
 
-            -- exit the search normally
-            return 'clc<CR>'
-        end,
-        { expr = true }
-    )
+        -- exit the search normally
+        return 'clc<CR>'
+    end, { expr = true })
 
     -- clear all searches and start back at index 1
     vim.api.nvim_create_user_command(
