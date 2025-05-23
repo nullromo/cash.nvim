@@ -65,7 +65,7 @@ keymaps.setUpKeymaps = function(cash)
 
     -- action to run when the user presses * or # from normal mode
     local starPoundAction = function(usingStar)
-        return function()
+        return vim.schedule_wrap(function()
             -- choose the key pressed based on the argument
             local keyPressed = usingStar and '*' or '#'
 
@@ -92,7 +92,7 @@ keymaps.setUpKeymaps = function(cash)
             if cash.opts.centerAfterSearch then
                 vim.cmd('normal! zz<CR>')
             end
-        end
+        end)
     end
 
     -- set keymaps for * and # to update module state
