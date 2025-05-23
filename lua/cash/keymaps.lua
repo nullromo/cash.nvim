@@ -96,8 +96,8 @@ keymaps.setUpKeymaps = function(cash)
     end
 
     -- set keymaps for * and # to update module state
-    addKeyTrigger('n', '*', starPoundAction(true))
-    addKeyTrigger('n', '#', starPoundAction(true))
+    addKeyTrigger('n', '*', starPoundAction(true), true)
+    addKeyTrigger('n', '#', starPoundAction(true), true)
 
     -- Use clc in command mode to clear the search
     vim.keymap.set('c', 'clc<CR>', function()
