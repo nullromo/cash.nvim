@@ -1,5 +1,31 @@
 local keymaps = {}
 
+-- adds a mapping without disturbing existing mappings
+local addKeyTrigger = function(mode, key, callback, prepend)
+    -- get the current keymap for the key
+    local keymap = vim.fn.maparg(key, mode, false, true)
+
+    -- if there is no current keymap, create a new keymap with the new callback
+    if next(keymap) == nil then
+        vim.keymap.set(mode, key, callback)
+        return
+    end
+
+    -- create a new keymap that calls both the old and new callbacks
+    vim.keymap.set(mode, key, function()
+        local result
+        -- the ordering of the old and new callbacks can be chosen
+        if prepend then
+            callback()
+            result = keymap.callback()
+        else
+            result = keymap.callback()
+            callback()
+        end
+        return result
+    end, { expr = true, remap = true })
+end
+
 keymaps.setUpKeymaps = function(cash)
     -- set the cash register switching keymap. Use ?<number> to swap to the
     -- <number>-th search pattern
@@ -70,8 +96,8 @@ keymaps.setUpKeymaps = function(cash)
     end
 
     -- set keymaps for * and # to update module state
-    vim.keymap.set('n', '*', starPoundAction(true))
-    vim.keymap.set('n', '#', starPoundAction(false))
+    addKeyTrigger('n', '*', starPoundAction(true))
+    addKeyTrigger('n', '#', starPoundAction(true))
 
     -- Use clc in command mode to clear the search
     vim.keymap.set('c', 'clc<CR>', function()
