@@ -7,23 +7,24 @@ local addKeyTrigger = function(mode, key, callback, prepend)
 
     -- if there is no current keymap, create a new keymap with the new callback
     if next(keymap) == nil then
-        vim.keymap.set(mode, key, callback)
+        vim.keymap.set(mode, key, function()
+            callback()
+            return key
+        end, { expr = true })
         return
     end
 
     -- create a new keymap that calls both the old and new callbacks
     vim.keymap.set(mode, key, function()
-        local result
         -- the ordering of the old and new callbacks can be chosen
         if prepend then
             callback()
-            result = keymap.callback()
+            keymap.callback()
         else
-            result = keymap.callback()
+            keymap.callback()
             callback()
         end
-        return result
-    end, { expr = true, remap = true })
+    end, { remap = true })
 end
 
 keymaps.setUpKeymaps = function(cash)
