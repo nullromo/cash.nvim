@@ -14,14 +14,28 @@ local addKeyTrigger = function(mode, key, callback, prepend)
         return
     end
 
+    -- execute the old mapping's action
+    local do_old_mapping = function()
+        -- if the old mapping was defined with a function, then it will have a
+        -- callback to call. Otherwise, it will have a right-hand-side to
+        -- execute in normal mode
+        if keymap.callback ~= nil then
+            keymap.callback()
+        else
+            vim.schedule(function()
+                vim.cmd('normal! ' .. keymap.rhs)
+            end)
+        end
+    end
+
     -- create a new keymap that calls both the old and new callbacks
     vim.keymap.set(mode, key, function()
         -- the ordering of the old and new callbacks can be chosen
         if prepend then
             callback()
-            keymap.callback()
+            do_old_mapping()
         else
-            keymap.callback()
+            do_old_mapping()
             callback()
         end
     end, { remap = true })
