@@ -9,6 +9,7 @@ return function(h)
     local cash = require('cash')
     local constants = require('cash.constants')
     local highlights = require('cash.highlights')
+    local options = require('cash.options')
 
     -- every match in a window, as "group=pattern", sorted so it can be
     -- compared as a single string
@@ -411,20 +412,45 @@ return function(h)
         end
         h.check('configured colors reach the highlight groups', everyGroup)
 
-        -- candidate 03: `or` defaulting cannot express false, so an option
-        -- whose default is true can never be turned off
+        -- `or` defaulting could not express false, so an option whose default
+        -- was true could never be turned off at all
         fresh({ centerAfterSearch = false })
-        h.knownBroken(
+        h.check(
             'centerAfterSearch = false is respected',
             cash.opts.centerAfterSearch == false,
             'resolves to ' .. tostring(cash.opts.centerAfterSearch)
         )
 
         fresh({ disableStarPoundJump = false })
-        h.knownBroken(
+        h.check(
             'disableStarPoundJump = false is respected',
             cash.opts.disableStarPoundJump == false,
             'resolves to ' .. tostring(cash.opts.disableStarPoundJump)
+        )
+
+        -- resolving used to write defaults into whatever table the caller
+        -- passed in, and to hand back this module's own default tables
+        local caller = { centerAfterSearch = false }
+        fresh(caller)
+        h.check(
+            "the caller's own options table is not written to",
+            vim.deep_equal(caller, { centerAfterSearch = false }),
+            'became ' .. vim.inspect(caller)
+        )
+        h.check(
+            'and the result does not alias the defaults',
+            cash.opts.colors.highlightColors[1]
+                ~= options.defaultOptions.colors.highlightColors[1]
+        )
+
+        -- a short list of colors used to leave the rest nil, which crashed
+        -- later with "attempt to index a nil value" rather than saying what
+        -- was actually wrong
+        h.check(
+            'a highlightColors list that is not 9 long is rejected',
+            not pcall(cash.setup, {
+                colors = { highlightColors = { { bg = '#ABCDEF' } } },
+            })
         )
 
         fresh()

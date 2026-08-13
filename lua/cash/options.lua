@@ -37,6 +37,25 @@ options.defaultOptions = {
     respectHLSearch = false,
 }
 
+-- checks the user's options and fills in a default for everything they did
+-- not specify. Returns a new table; the caller's own table is left alone
+options.resolve = function(opts)
+    opts = opts or {}
+
+    -- validate what the user actually wrote, so that a complaint names one of
+    -- their options rather than one of ours
+    options.validateOptions(opts)
+
+    -- the defaults are deep copied first because tbl_deep_extend hands back
+    -- the tables it did not have to merge, and those would be this module's
+    -- own defaults, shared with whatever the caller does to the result later
+    return vim.tbl_deep_extend(
+        'force',
+        vim.deepcopy(options.defaultOptions),
+        opts
+    )
+end
+
 options.validateOptions = function(opts)
     for key1, value1 in pairs(opts) do
         local name1 = 'opts'
@@ -56,6 +75,15 @@ options.validateOptions = function(opts)
                         'opts.colors.highlightColors',
                         'table'
                     )
+                    -- there are 9 cash registers, so there have to be 9
+                    -- colors. A shorter list would otherwise only fail later,
+                    -- when something looked up a cash register that had none
+                    if #value2 ~= 9 then
+                        error(
+                            '"opts.colors.highlightColors" must have exactly '
+                                .. '9 entries for Cash.nvim'
+                        )
+                    end
                     for key3, value3 in ipairs(value2) do
                         local name3 = name2
                             .. '.highlightColors['

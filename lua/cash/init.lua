@@ -5,26 +5,8 @@ local options = require('cash.options')
 
 -- main setup function for Cash.nvim
 cashModule.setup = function(opts)
-    -- make sure options is not nil
-    opts = opts or {}
-
-    -- set default options if not already set
-    opts.centerAfterSearch = opts.centerAfterSearch
-        or options.defaultOptions.centerAfterSearch
-    opts.colors = opts.colors or options.defaultOptions.colors
-    opts.colors.defaultFG = opts.colors.defaultFG
-        or options.defaultOptions.colors.defaultFG
-    opts.colors.defaultBG = opts.colors.defaultBG
-        or options.defaultOptions.colors.defaultBG
-    opts.colors.highlightColors = opts.colors.highlightColors
-        or options.defaultOptions.colors.highlightColors
-    opts.disableStarPoundJump = opts.disableStarPoundJump
-        or options.defaultOptions.disableStarPoundJump
-    opts.respectHLSearch = opts.respectHLSearch
-        or options.defaultOptions.respectHLSearch
-
-    -- validate options
-    options.validateOptions(opts)
+    -- check the user's options and fill in the defaults
+    opts = options.resolve(opts)
 
     -- set options
     cashModule.opts = opts
