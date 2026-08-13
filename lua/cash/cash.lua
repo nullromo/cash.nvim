@@ -107,6 +107,15 @@ CashModule.setUpAutocmds = function()
         group = group,
         callback = CashModule.updateHighlights,
     })
+
+    -- changing ignorecase changes the case flag that every pattern without an
+    -- explicit \c or \C resolves to, so the matches built from those patterns
+    -- are no longer the ones that should be on screen
+    vim.api.nvim_create_autocmd('OptionSet', {
+        group = group,
+        pattern = 'ignorecase',
+        callback = CashModule.updateHighlights,
+    })
 end
 
 -- print debug info
