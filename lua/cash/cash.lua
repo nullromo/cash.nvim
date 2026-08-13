@@ -1,14 +1,36 @@
 local highlights = require('cash.highlights')
+local jump = require('cash.jump')
 local util = require('cash.util')
 
 local CashModule = {}
 
--- factory for default module state
+-- factory for default module state. A cash register is a record rather than a
+-- bare pattern, because includeInSearch belongs to the register and has to
+-- survive everything that rewrites the pattern
 local generateDefaultState = function()
+    local cashRegisters = {}
+    for index = 1, 9 do
+        cashRegisters[index] = { pattern = '', includeInSearch = false }
+    end
+
     return {
         currentIndex = 1,
-        cashRegisters = { '', '', '', '', '', '', '', '', '' },
+        cashRegisters = cashRegisters,
     }
+end
+
+-- complains about an index that does not name a cash register, and returns
+-- false so that callers can give up on one line
+local rejectIndex = function(index)
+    if util.isCashRegisterIndex(index) then
+        return false
+    end
+
+    vim.notify(
+        'Cash.nvim: cash register must be a whole number from 1 to 9',
+        vim.log.levels.WARN
+    )
+    return true
 end
 
 -- brings the highlights in every window in line with the current state
@@ -30,7 +52,8 @@ CashModule.setSearch = function(searchString)
     -- set the contents of the working cash register. Note that there is no
     -- need to update the highlights here: the working cash register is shown
     -- using vim's Search highlight, so it has no match to keep in step
-    CashModule.state.cashRegisters[CashModule.state.currentIndex] = searchString
+    CashModule.state.cashRegisters[CashModule.state.currentIndex].pattern =
+        searchString
 end
 
 -- initializes the state of the module
@@ -42,21 +65,12 @@ end
 -- sets the working cash register
 CashModule.setCashRegister = function(newIndex)
     -- there are only 9 cash registers
-    if
-        type(newIndex) ~= 'number'
-        or newIndex < 1
-        or newIndex > 9
-        or newIndex ~= math.floor(newIndex)
-    then
-        vim.notify(
-            'Cash.nvim: cash register must be a whole number from 1 to 9',
-            vim.log.levels.WARN
-        )
+    if rejectIndex(newIndex) then
         return
     end
 
     -- get the contents of the new cash register
-    local newPattern = CashModule.state.cashRegisters[newIndex]
+    local newPattern = CashModule.state.cashRegisters[newIndex].pattern
 
     -- switch first, so that the highlights are worked out against the new
     -- working cash register
@@ -64,7 +78,7 @@ CashModule.setCashRegister = function(newIndex)
     CashModule.updateHighlights()
 
     -- if there is no search pattern, use an empty string
-    if newPattern == nil or newPattern == '' then
+    if newPattern == '' then
         -- clear the search register
         vim.fn.setreg('/', {})
     else
@@ -80,6 +94,42 @@ CashModule.setCashRegister = function(newIndex)
             vim.fn.search(newPattern, 'w')
         end
     end
+end
+
+-- switches whether n and N visit this cash register's matches. Note that the
+-- working cash register is in the search set whatever its own switch says, so
+-- turning this off for it changes nothing until it stops being the working
+-- one. Highlighting is not affected either way: including a cash register
+-- changes where n goes, never what is lit
+CashModule.setIncludeInSearch = function(index, include)
+    if rejectIndex(index) then
+        return
+    end
+
+    CashModule.state.cashRegisters[index].includeInSearch = include and true
+        or false
+end
+
+CashModule.toggleIncludeInSearch = function(index)
+    if rejectIndex(index) then
+        return
+    end
+
+    CashModule.setIncludeInSearch(
+        index,
+        not CashModule.state.cashRegisters[index].includeInSearch
+    )
+end
+
+-- what n and N do. Exported so that anyone who wants their own n -- to center
+-- the screen after it, say -- can wrap these rather than replace them, which
+-- would take the search set out of the picture without saying so
+CashModule.nextMatch = function()
+    jump.go(CashModule, true)
+end
+
+CashModule.previousMatch = function()
+    jump.go(CashModule, false)
 end
 
 -- clear all searches and start back at index 1
@@ -116,13 +166,36 @@ CashModule.setUpAutocmds = function()
         pattern = 'ignorecase',
         callback = CashModule.updateHighlights,
     })
+
+    -- cash register highlighting follows v:hlsearch, so :nohlsearch clears all
+    -- nine at once instead of only the working one, and the next search brings
+    -- them all back. Nothing announces a change to v:hlsearch, so it is
+    -- compared against the last value that was acted on. SafeState fires
+    -- whenever vim is about to wait for input, which makes this a number
+    -- comparison per keystroke; the update itself only runs when the answer
+    -- has actually changed
+    local lastHighlightState = vim.v.hlsearch
+    vim.api.nvim_create_autocmd('SafeState', {
+        group = group,
+        callback = function()
+            if vim.v.hlsearch == lastHighlightState then
+                return
+            end
+            lastHighlightState = vim.v.hlsearch
+            CashModule.updateHighlights()
+        end,
+    })
 end
 
 -- print debug info
 CashModule.printDebugInfo = function()
     local registers = {}
     for index = 1, 9 do
-        table.insert(registers, CashModule.state.cashRegisters[index] or 'nil')
+        local register = CashModule.state.cashRegisters[index]
+        table.insert(
+            registers,
+            register.pattern .. (register.includeInSearch and ' (in n/N)' or '')
+        )
     end
 
     vim.notify(

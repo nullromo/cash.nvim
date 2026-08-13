@@ -147,6 +147,26 @@ keymaps.setUpKeymaps = function(cash)
         return 'clc<CR>'
     end, { expr = true })
 
+    -- n and N move between the matches of every cash register in the search
+    -- set, not just the working one. Only normal mode is taken: in operator
+    -- pending and visual mode, dn and vn keep reading @/, which is the working
+    -- cash register on its own
+    if cash.opts.manageJumps then
+        vim.keymap.set(
+            'n',
+            'n',
+            cash.nextMatch,
+            { desc = 'Cash.nvim: next match in the search set' }
+        )
+
+        vim.keymap.set(
+            'n',
+            'N',
+            cash.previousMatch,
+            { desc = 'Cash.nvim: previous match in the search set' }
+        )
+    end
+
     -- clear all searches and start back at index 1
     vim.api.nvim_create_user_command(
         'ResetCashRegisters',

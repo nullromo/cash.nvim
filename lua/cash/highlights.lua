@@ -17,16 +17,6 @@ local deleteMatch = function(matchID, windowID)
     pcall(vim.fn.matchdelete, matchID, windowID)
 end
 
--- works out the pattern that vim should actually be asked to match, which is
--- the cash register's pattern plus a case flag. An explicit \c or \C in the
--- pattern wins, and makes the value of ignorecase irrelevant
-local resolveCase = function(pattern)
-    if string.find(pattern, '\\c') or string.find(pattern, '\\C') then
-        return pattern
-    end
-    return (vim.opt.ignorecase:get() and '\\c' or '\\C') .. pattern
-end
-
 -- the pattern that the index-th cash register should be highlighting in every
 -- window right now, or nil if it should not be highlighted at all
 local desiredPattern = function(cashRegisters, currentIndex, index)
@@ -36,12 +26,12 @@ local desiredPattern = function(cashRegisters, currentIndex, index)
         return nil
     end
 
-    local pattern = cashRegisters[index]
-    if pattern == nil or pattern == '' then
+    local pattern = cashRegisters[index].pattern
+    if pattern == '' then
         return nil
     end
 
-    local matchPattern = resolveCase(pattern)
+    local matchPattern = util.resolveCase(pattern)
 
     -- a cash register holds whatever the user typed, which includes patterns
     -- vim cannot compile. Those highlight nothing because vim has already
@@ -112,14 +102,21 @@ end
 
 -- makes this true, in every window:
 --
---     window W has a highlight for cash register i exactly when i is not the
---     working cash register and cash register i's pattern is not empty
+--     window W has a highlight for cash register i exactly when v:hlsearch is
+--     on, i is not the working cash register, and cash register i's pattern is
+--     not empty
 --
 -- Safe to call at any time and as often as you like; a call that finds nothing
 -- out of place does not touch vim at all
 highlights.update = function(cashRegisters, currentIndex)
     -- the working cash register's color comes from the Search highlight
     setSearchHighlight(currentIndex)
+
+    -- :nohlsearch turns v:hlsearch off, and the cash registers go with it.
+    -- Vim only ever applied that to the working one, since the other eight are
+    -- matches rather than hlsearch; following the same flag is what makes
+    -- :nohlsearch mean "clear the search highlighting", all nine of them
+    local highlightingIsOn = vim.v.hlsearch ~= 0
 
     -- ask vim which windows exist. Note that this covers all windows in all
     -- tabs
@@ -138,7 +135,10 @@ highlights.update = function(cashRegisters, currentIndex)
         end
 
         for index = 1, 9 do
-            local wanted = desiredPattern(cashRegisters, currentIndex, index)
+            local wanted = nil
+            if highlightingIsOn then
+                wanted = desiredPattern(cashRegisters, currentIndex, index)
+            end
             local existing = matches[index]
 
             -- drop a match that is no longer wanted, or that was built from a

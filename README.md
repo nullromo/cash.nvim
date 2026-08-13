@@ -34,10 +34,6 @@ Lazy.nvim config:
 }
 ```
 
-## 💶 Compatibility Issues / Warnings
-
-Cash.nvim will overwrite the default behavior of the <kbd>?</kbd> key.
-
 ## 💲 How to Use
 
 ### Search Normally
@@ -62,10 +58,37 @@ will remain on the screen. You can then perform a new search independent of the
 previous one. Any search you perform will always overwrite the contents of the
 working cash register.
 
-Jumping always jumps between occurrences that match the contents of the working
-cash register, skipping over matches for other cash registers. If you want to
-jump between matches for a different cash register other than the working one,
-simply switch back to that cash register and start jumping.
+Jumping normally jumps between occurrences that match the contents of the
+working cash register, skipping over matches for other cash registers. If you
+want to jump between matches for a different cash register other than the
+working one, either switch back to that cash register and start jumping, or use
+the `includeInSearch` option.
+
+### Include in Search
+
+By default, <kbd>n</kbd> and <kbd>N</kbd> jump between the matches of the
+working cash register only. Switching `includeInSearch` on for another cash
+register causes jumps to match the contents of that cash register as well.
+<kbd>n</kbd> visits whichever match comes next from among the search patterns
+in all cash registers that have `includeInSearch` enabled.
+
+```lua
+require('cash').setIncludeInSearch(2, true) -- include register 2 matches when pressing n/N
+require('cash').toggleIncludeInSearch(2)    -- toggle whether or not to include register 2
+```
+
+For example, say cash register 1 holds `foo` and cash register 2 holds `bar`.
+If both registers 1 and 2 have `includeInSearch` = `true`, then <kbd>n</kbd>
+walks through every `foo` and every `bar` in whatever order they appear. They
+keep their own colors while it happens. Including a cash register changes where
+<kbd>n</kbd>/<kbd>N</kbd> go, not what is highlighted.
+
+The working cash register is always included, no matter what its own
+`includeInSearch` setting says.
+
+Each cash register keeps its own case sensitivity. If one register holds `\Cfoo`
+and another holds `bar`, the first stays case-sensitive and the second still
+follows `ignorecase`.
 
 ### Clear Cash Registers
 
@@ -81,6 +104,23 @@ register to an empty string and clear the contents of all cash registers.
 
 Cash.nvim will respect the `ignorecase` option, but the case sensitivity can be
 overridden in the search pattern as normal using `\c` or `\C` (see `:help /\c`).
+
+## 💶 Compatibility Issues / Warnings
+
+Cash.nvim will overwrite the default behavior of the <kbd>?</kbd> key.
+
+Cash.nvim also maps <kbd>n</kbd> and <kbd>N</kbd> in normal mode, so that they
+can jump between the matches of more than one cash register (see
+[Include in Search](#include-in-search)). Whenever the search set is a single
+cash register, <kbd>n</kbd> and <kbd>N</kbd> use their native (Neo-)Vim
+functions. Set `manageJumps = false` to make `includeInSearch` a no-op and
+leave the <kbd>n</kbd> and <kbd>N</kbd> keys alone entirely.
+
+If you map <kbd>n</kbd> yourself (`vim.keymap.set('n', 'n', 'nzz')` is a common
+one, and used to be suggested below), your mapping replaces Cash.nvim's and
+include-in-search will silently stop working. Map
+`require('cash').nextMatch` / `require('cash').previousMatch` if you want to
+maintain Cash.nvim's intended behavior.
 
 ## 💱 Customization
 
@@ -113,6 +153,9 @@ overridden in the search pattern as normal using `\c` or `\C` (see `:help /\c`).
     -- next occurrence. Vim will jump by default; this plugin disables the jump
     -- by default
     disableStarPoundJump = true,
+    -- let this plugin own n and N, so that they can jump between the matches
+    -- of every cash register in the search set
+    manageJumps = true,
     -- leave vim's hlsearch setting alone. This plugin overrides hlsearch by
     -- default
     respectHLSearch = false,
@@ -127,6 +170,7 @@ overridden in the search pattern as normal using `\c` or `\C` (see `:help /\c`).
 | `colors.defaultBG` and `colors.defaultFG` | string (`'#RRGGBB'`)                           | see above | These will be the highlight background and foreground, respectively, for highlight colors that do not have a `bg` or `fg` color specified, respectively.                                                                                                                                                                   |
 | `colors.highlightColors`                  | list of 9 `{ bg = string, fg = string }` items | see above | This is a table of 9 values, each with a `bg` and `fg` field. These define the highlight colors for each of the 9 available cash registers. If a `bg` or `fg` value is not specified in one of these entries, then the `colors.defaultBG`/`colors.defaultFG` color will be used. Colors should be of the form `'#RRGGBB'`. |
 | `disableStarPoundJump`                    | boolean                                        | `true`    | By default, Vim will jump you to the next occurrence of a search term if you initiate the search using <kbd>\*</kbd> or <kbd>#</kbd>. Cash.nvim disables this by default. You can preserve Vim's default behavior by setting this option to `false`.                                                                       |
+| `manageJumps`                             | boolean                                        | `true`    | Cash.nvim maps <kbd>n</kbd> and <kbd>N</kbd> so that they can jump between the matches of every cash register in the search set. With only one cash register in the search set, the mapping uses Vim's default behavior, so nothing changes until you turn `includeInSearch` on for more than one cash register. Set this to `false` to leave the keys alone, which also turns `includeInSearch` into a no-op. |
 | `respectHLSearch`                         | boolean                                        | `false`   | In order to enable search highlighting for the current search, you need to enable the `hlsearch` Vim option. Cash.nvim does this automatically, but if you want your `hlsearch` setting to be left as-is, then you can set this option to `true`.                                                                          |
 
 ## 💴 Other Tips
@@ -155,9 +199,20 @@ very similar to <kbd>j</kbd>, so it's not that useful. For this reason,
 This mapping centers the screen after each jump with <kbd>n</kbd>/<kbd>N</kbd>.
 
 ```lua
-vim.keymap.set('n', 'n', 'nzz')
-vim.keymap.set('n', 'N', 'Nzz')
+local cash = require('cash')
+vim.keymap.set('n', 'n', function()
+    cash.nextMatch()
+    vim.cmd('normal! zz')
+end)
+vim.keymap.set('n', 'N', function()
+    cash.previousMatch()
+    vim.cmd('normal! zz')
+end)
 ```
+
+Do not use the usual `vim.keymap.set('n', 'n', 'nzz')` for this. That mapping
+calls Vim's built-in <kbd>n</kbd>, which knows nothing about the search set, so
+<kbd>n</kbd> would only ever be able to visit the working cash register.
 
 This can provide a more consistent experience when paired with Cash.nvim's
 `centerAfterSearch` option.

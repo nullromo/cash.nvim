@@ -32,6 +32,13 @@ options.defaultOptions = {
     -- next occurrence. Vim will jump by default; this plugin disables the jump
     -- by default
     disableStarPoundJump = true,
+    -- let this plugin own n and N, so that they can move between the matches
+    -- of every cash register in the search set. With one cash register in the
+    -- search set -- which is the case until include-in-search is switched on
+    -- somewhere -- the mapping hands straight back to vim, so n and N behave
+    -- exactly as they always did. Set this to false to leave them alone
+    -- entirely, at the cost of include-in-search doing nothing
+    manageJumps = true,
     -- leave vim's hlsearch setting alone. This plugin overrides hlsearch by
     -- default
     respectHLSearch = false,
@@ -118,6 +125,8 @@ options.validateOptions = function(opts)
             end
         elseif key1 == 'disableStarPoundJump' then
             util.checkType(value1, name1 .. '.disableStarPoundJump', 'boolean')
+        elseif key1 == 'manageJumps' then
+            util.checkType(value1, name1 .. '.manageJumps', 'boolean')
         elseif key1 == 'respectHLSearch' then
             util.checkType(value1, name1 .. '.respectHLSearch', 'boolean')
         else

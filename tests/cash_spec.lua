@@ -298,8 +298,8 @@ return function(h)
         )
         h.check(
             'the pattern is stored as typed, the way vim stores it in @/',
-            cash.state.cashRegisters[1] == '\\(',
-            'got [' .. tostring(cash.state.cashRegisters[1]) .. ']'
+            cash.state.cashRegisters[1].pattern == '\\(',
+            'got [' .. tostring(cash.state.cashRegisters[1].pattern) .. ']'
         )
         h.check(
             'it highlights nothing',
@@ -353,10 +353,14 @@ return function(h)
             matchesIn(window) == '',
             'got [' .. matchesIn(window) .. ']'
         )
-        h.check(
-            'reset empties every cash register',
-            table.concat(cash.state.cashRegisters) == ''
-        )
+        local allEmpty = true
+        for index = 1, 9 do
+            local register = cash.state.cashRegisters[index]
+            if register.pattern ~= '' or register.includeInSearch then
+                allEmpty = false
+            end
+        end
+        h.check('reset empties every cash register', allEmpty)
         h.check(
             'reset returns to cash register 1',
             cash.state.currentIndex == 1
