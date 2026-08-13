@@ -1,4 +1,5 @@
 local cashModule = require('cash.cash')
+local highlights = require('cash.highlights')
 local keymaps = require('cash.keymaps')
 local options = require('cash.options')
 
@@ -29,20 +30,19 @@ cashModule.setup = function(opts)
     cashModule.opts = opts
 
     -- set up highlight groups
-    for i = 1, 9 do
-        local bg = opts.colors.highlightColors[i].bg or opts.colors.defaultBG
-        local fg = opts.colors.highlightColors[i].fg or opts.colors.defaultFG
-        vim.cmd.highlight(
-            'CashRegister' .. i,
-            'guibg=' .. bg .. ' guifg=' .. fg
-        )
-    end
+    highlights.setup(opts.colors)
 
     -- set initial plugin state
     cashModule.initializeData()
 
+    -- subscribe to editor events now that there is state for them to update
+    cashModule.setUpAutocmds()
+
     -- set up keymaps
     keymaps.setUpKeymaps(cashModule)
+
+    -- bring any windows that are already open in line with the state
+    cashModule.updateHighlights()
 
     -- enable hlsearch
     if not opts.respectHLSearch then

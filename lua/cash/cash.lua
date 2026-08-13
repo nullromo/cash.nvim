@@ -1,3 +1,4 @@
+local highlights = require('cash.highlights')
 local util = require('cash.util')
 
 local CashModule = {}
@@ -7,59 +8,15 @@ local generateDefaultState = function()
     return {
         currentIndex = 1,
         cashRegisters = { '', '', '', '', '', '', '', '', '' },
-        windowMatchIDs = {},
     }
 end
 
--- removes a match from vim based on a cash register index
-local deleteMatchFromAllWindows = function(index)
-    for windowID, matchIDs in pairs(CashModule.state.windowMatchIDs) do
-        local matchID = matchIDs[index]
-        if matchID ~= nil and matchID ~= -1 then
-            util.wrappers.matchdelete(matchID, windowID)
-            matchIDs[index] = nil
-        end
-    end
-end
-
--- adds a match to just one window. Returns the match ID
-local addMatchToWindow = function(index, windowID)
-    -- pattern being matched
-    local pattern = CashModule.state.cashRegisters[index]
-
-    -- if the pattern is blank, do nothing
-    if pattern == '' then
-        return
-    end
-
-    -- explicitMatchCase will be true, false, or nil
-    local explicitMatchCase = nil
-    if string.find(pattern, '\\c') then
-        explicitMatchCase = false
-    elseif string.find(pattern, '\\C') then
-        explicitMatchCase = true
-    end
-
-    -- if the ignorecase option is set, this flag will contain the \c for the
-    -- search pattern. This is only used if \c or \C were not in the pattern
-    local ignoreCaseFlag = vim.opt.ignorecase:get() and '\\c' or '\\C'
-
-    -- set the match. Note the changing the value of ignorecase will not update
-    -- the search highlights for non-active cash registers
-    return vim.fn.matchadd(
-        'CashRegister' .. index,
-        (explicitMatchCase == nil and ignoreCaseFlag or '') .. pattern,
-        -1, -- use priority lower than search
-        -1, -- automatically choose ID
-        { window = windowID }
+-- brings the highlights in every window in line with the current state
+CashModule.updateHighlights = function()
+    highlights.update(
+        CashModule.state.cashRegisters,
+        CashModule.state.currentIndex
     )
-end
-
--- adds a match to vim based on a cash register index
-local addMatchToAllWindows = function(index)
-    for windowID, matchIDs in pairs(CashModule.state.windowMatchIDs) do
-        matchIDs[index] = addMatchToWindow(index, windowID)
-    end
 end
 
 -- sets the given string as the search pattern for the current index. This
@@ -70,7 +27,9 @@ CashModule.setSearch = function(searchString)
     if searchString == '' then
         vim.fn.setreg('/', '')
     end
-    -- set the contents of the active cash register
+    -- set the contents of the working cash register. Note that there is no
+    -- need to update the highlights here: the working cash register is shown
+    -- using vim's Search highlight, so it has no match to keep in step
     CashModule.state.cashRegisters[CashModule.state.currentIndex] = searchString
 end
 
@@ -80,156 +39,91 @@ CashModule.initializeData = function()
     CashModule.setSearch('')
 end
 
--- sets the active cash register
+-- sets the working cash register
 CashModule.setCashRegister = function(newIndex)
-    -- get the contents of the active cash register and the new cash register
+    -- there are only 9 cash registers
+    if
+        type(newIndex) ~= 'number'
+        or newIndex < 1
+        or newIndex > 9
+        or newIndex ~= math.floor(newIndex)
+    then
+        vim.notify(
+            'Cash.nvim: cash register must be a whole number from 1 to 9',
+            vim.log.levels.WARN
+        )
+        return
+    end
+
+    -- get the contents of the new cash register
     local newPattern = CashModule.state.cashRegisters[newIndex]
 
-    -- delete the match that was highlighting the newIndex-th pattern
-    deleteMatchFromAllWindows(newIndex)
-
-    -- add a new match highlighting the currentIndex-th pattern
-    addMatchToAllWindows(CashModule.state.currentIndex)
-
-    -- change the active search highlight color
-    vim.api.nvim_set_hl(0, 'Search', {
-        fg = CashModule.opts.colors.highlightColors[newIndex].fg
-            or CashModule.opts.colors.defaultFG,
-        bg = CashModule.opts.colors.highlightColors[newIndex].bg
-            or CashModule.opts.colors.defaultBG,
-    })
+    -- switch first, so that the highlights are worked out against the new
+    -- working cash register
+    CashModule.state.currentIndex = newIndex
+    CashModule.updateHighlights()
 
     -- if there is no search pattern, use an empty string
     if newPattern == nil or newPattern == '' then
         -- clear the search register
         vim.fn.setreg('/', {})
     else
-        -- store the new pattern in the search register
+        -- store the new pattern in the search register. This happens even for
+        -- a pattern vim cannot compile, so that the search register and the
+        -- cash register agree. It is also what vim itself does after a failed
+        -- search
         vim.fn.setreg('/', newPattern)
-        -- search for the new pattern (w = wrap around end of document)
-        vim.fn.search(newPattern, 'w')
-    end
 
-    -- update the active cash register index
-    CashModule.state.currentIndex = newIndex
+        -- only jump if vim can actually use the pattern
+        if util.isUsablePattern(newPattern) then
+            -- search for the new pattern (w = wrap around end of document)
+            vim.fn.search(newPattern, 'w')
+        end
+    end
 end
 
 -- clear all searches and start back at index 1
 CashModule.resetCashRegisters = function()
-    -- clear current search
-    CashModule.setSearch('')
-
-    -- reset search index to 1
-    CashModule.setCashRegister(1)
-
-    -- remove all leftover match highlights
-    for i = 1, 9 do
-        deleteMatchFromAllWindows(i)
-    end
-
-    -- re-initialize module state
+    -- empty every cash register and go back to the first one
     CashModule.initializeData()
+
+    -- remove the highlights for the cash registers that were just emptied.
+    -- Note that the state is reset before this, never after: the ledger of
+    -- match IDs lives in the highlights module precisely so that it cannot be
+    -- thrown away while the matches it describes are still on screen
+    CashModule.updateHighlights()
+end
+
+-- subscribes to the editor events that can invalidate the highlights. Called
+-- from setup, so that nothing can fire before there is any state to update
+CashModule.setUpAutocmds = function()
+    local group = vim.api.nvim_create_augroup('CashNvim', { clear = true })
+
+    -- a new window needs the highlights for the non-working cash registers.
+    -- WinNew catches windows that are created without being entered; WinEnter
+    -- is a cheap safety net, since an update that finds nothing out of place
+    -- does not touch vim at all
+    vim.api.nvim_create_autocmd({ 'WinNew', 'WinEnter' }, {
+        group = group,
+        callback = CashModule.updateHighlights,
+    })
 end
 
 -- print debug info
 CashModule.printDebugInfo = function()
-    local s = ''
-    for i = 1, 9 do
-        local x = CashModule.state.cashRegisters[i]
-        if x == nil then
-            s = s .. 'nil' .. ', '
-        else
-            s = s .. x .. ', '
-        end
+    local registers = {}
+    for index = 1, 9 do
+        table.insert(registers, CashModule.state.cashRegisters[index] or 'nil')
     end
-    local z = '\n'
-    for windowID, matchIDs in pairs(CashModule.state.windowMatchIDs) do
-        z = z .. '\twindow ' .. windowID .. ': '
-        for i = 1, 9 do
-            local x = matchIDs[i]
-            if x == nil then
-                z = z .. 'nil' .. ', '
-            else
-                z = z .. x .. ', '
-            end
-        end
-        z = z .. '\n'
-    end
+
     vim.notify(
         'index: '
             .. CashModule.state.currentIndex
             .. '\ncash registers: '
-            .. s
-            .. '\nwindowMatchIDs: '
-            .. z
+            .. table.concat(registers, ', ')
+            .. '\nwindowMatchIDs: \n'
+            .. highlights.debugInfo()
     )
 end
-
--- whenever a new window is opened, give that window a blank set of match IDs
-vim.api.nvim_create_autocmd({ 'VimEnter', 'WinEnter' }, {
-    callback = function()
-        -- get the window ID for the window that was just entered
-        local windowID = tonumber(vim.fn.win_getid())
-
-        -- create empty match ID table
-        if windowID ~= nil then
-            if CashModule.state.windowMatchIDs[windowID] == nil then
-                CashModule.state.windowMatchIDs[windowID] = {
-                    nil,
-                    nil,
-                    nil,
-                    nil,
-                    nil,
-                    nil,
-                    nil,
-                    nil,
-                    nil,
-                }
-            end
-        else
-            vim.notify(
-                'Could not get window ID from VimEnter/WinEnter event.',
-                vim.log.levels.WARN
-            )
-        end
-
-        -- add all the necessary highlights to the newly opened window
-        for index = 1, 9 do
-            -- convenience variables
-            local pattern = CashModule.state.cashRegisters[index]
-            local matchIDs = CashModule.state.windowMatchIDs[windowID]
-
-            if index == CashModule.state.currentIndex then
-                -- do not add a match for the current index
-            elseif pattern == nil or pattern == '' then
-                -- do not add a match if the cash register is empty
-            elseif matchIDs[index] ~= nil and matchIDs[index] ~= -1 then
-                -- do not add a match if it's already set up
-            else
-                -- add the match to the window
-                matchIDs[index] = addMatchToWindow(index, windowID)
-            end
-        end
-    end,
-})
-
--- whenever a window is closed, stop tracking match IDs for it
-vim.api.nvim_create_autocmd({ 'WinClosed' }, {
-    callback = function(event)
-        -- event.match holds the value of <amatch>, which in this case gets set
-        -- to the window ID of the window that was just closed
-        local windowID = tonumber(event.match)
-
-        -- remove the matchID list for the window that was closed
-        if windowID ~= nil then
-            CashModule.state.windowMatchIDs[windowID] = nil
-        else
-            vim.notify(
-                'Could not get window ID from WinClosed event.',
-                vim.log.levels.WARN
-            )
-        end
-    end,
-})
 
 return CashModule

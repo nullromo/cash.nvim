@@ -10,25 +10,14 @@ util.checkType = function(value, valueName, typeName)
     end
 end
 
-local wrappers = {}
-
--- no-throw wrapper for vim matchdelete function
-wrappers.matchdelete = function(matchID, windowID)
-    -- set up return value
-    local returnValue = 0
-    -- use protected call
-    local deleteOK, deleteError = pcall(function()
-        -- call underlying vim function
-        returnValue = vim.fn.matchdelete(matchID, windowID)
-    end)
-    -- report error if necessary
-    if not deleteOK then
-        vim.notify(tostring(deleteError), vim.log.levels.ERROR)
-    end
-    -- return actual value from underlying vim function
-    return returnValue
+-- true if vim will accept the given string as a search pattern.
+--
+-- A cash register holds whatever the user typed, which includes patterns vim
+-- cannot compile, so anything about to hand a pattern to vim has to ask first.
+-- Matching against an empty string compiles the pattern without needing a
+-- buffer, and throws if it cannot be compiled
+util.isUsablePattern = function(pattern)
+    return (pcall(vim.fn.match, '', pattern))
 end
-
-util.wrappers = wrappers
 
 return util
