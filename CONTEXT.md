@@ -139,7 +139,14 @@ This is what makes editing safe: there is no chrome for an edit to damage,
 because the chrome is not text. <kbd>G</kbd> lands on cash register 9 rather
 than on a key hint, and no motion needs a special case.
 
-Two things the drawer has to do that are easy to get wrong:
+While the drawer is open, **the buffer is the truth**. A `TextChanged` autocmd
+reads the nine lines back into the cash registers on every keystroke and
+updates the highlights, so the buffers behind the drawer follow along as a
+pattern is typed. Closing with <kbd>q</kbd> only has the search register left
+to put in step; <kbd>Ctrl-c</kbd> puts back a snapshot taken when the drawer
+opened.
+
+Things the drawer has to do that are easy to get wrong:
 
 - Its buffer is left out of `updateHighlights`. It holds the search patterns as
   literal text, so matching them there would paint the drawer in the very
@@ -148,7 +155,14 @@ Two things the drawer has to do that are easy to get wrong:
   window is still showing the buffer the user came from.
 - Match counts are worked out with `nvim_win_call` against the window the user
   came from. Run in the drawer, `searchcount()` would count matches in the list
-  of patterns rather than in their buffer.
+  of patterns rather than in their buffer. The same goes for selecting a cash
+  register, which searches for its pattern: run with the drawer focused, that
+  jump lands in the list of patterns.
+- Writes the plugin makes itself — opening, swapping, repairing the row count —
+  are made with `undolevels` dropped, so they never enter the undo history.
+  <kbd>u</kbd> should undo what the user typed and nothing else. Without it,
+  <kbd>u</kbd> can restore the empty buffer the drawer started as, which the
+  row-count guard then reads back as nine empty cash registers.
 
 ## Highlight group
 

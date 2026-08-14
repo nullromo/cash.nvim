@@ -69,18 +69,18 @@ the `includeInSearch` option.
 By default, <kbd>n</kbd> and <kbd>N</kbd> jump between the matches of the
 working cash register only. Switching `includeInSearch` on for another cash
 register causes jumps to match the contents of that cash register as well.
-<kbd>n</kbd> visits whichever match comes next from among the search patterns
-in all cash registers that have `includeInSearch` enabled.
+<kbd>n</kbd> visits whichever match comes next from among the search patterns in
+all cash registers that have `includeInSearch` enabled.
 
 ```lua
 require('cash').setIncludeInSearch(2, true) -- include register 2 matches when pressing n/N
 require('cash').toggleIncludeInSearch(2)    -- toggle whether or not to include register 2
 ```
 
-For example, say cash register 1 holds `foo` and cash register 2 holds `bar`.
-If both registers 1 and 2 have `includeInSearch` = `true`, then <kbd>n</kbd>
-walks through every `foo` and every `bar` in whatever order they appear. They
-keep their own colors while it happens. Including a cash register changes where
+For example, say cash register 1 holds `foo` and cash register 2 holds `bar`. If
+both registers 1 and 2 have `includeInSearch` = `true`, then <kbd>n</kbd> walks
+through every `foo` and every `bar` in whatever order they appear. They keep
+their own colors while it happens. Including a cash register changes where
 <kbd>n</kbd>/<kbd>N</kbd> go, not what is highlighted.
 
 The working cash register is always included, no matter what its own
@@ -94,33 +94,37 @@ follows `ignorecase`.
 
 `:Cash` opens a popup showing all nine cash registers at once: their contents,
 their colors, which ones <kbd>n</kbd>/<kbd>N</kbd> will visit, and how many
-matches each one has in the buffer you came from. To use the drawer, refer to
-the table below.
+matches each one has in the buffer you came from.
 
-| Key                            | Does                                                                                                                |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| <kbd>j</kbd> / <kbd>k</kbd>     | Move between cash registers.                                                                                        |
-| <kbd>Space</kbd>               | Toggle `includeInSearch` for the cash register under the cursor.                                                    |
-| <kbd>Enter</kbd>               | Select the highlighted cash register and close.                                                                      |
-| <kbd>Tab</kbd>                 | Select the highlighted cash register and stay open.                                                                  |
-| <kbd>]</kbd> / <kbd>[</kbd>    | Swap the highlighted cash register with the one below / above. Contents move, but colors stay put, so this is one way to re-color a search. |
-| <kbd>q</kbd> / <kbd>Esc</kbd>  | Close the drawer.                                                                                                              |
+Other possible actions from the drawer are listed in the table below.
+
+| Key                           | Does                                                                                                                                        |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| <kbd>j</kbd> / <kbd>k</kbd>   | Move between cash registers.                                                                                                                |
+| any edit                      | Edit the cash register under the cursor. Edits here work like any regular buffer.                                                           |
+| <kbd>d</kbd><kbd>d</kbd>      | Empty the highlighted cash register. It clears the row rather than removing it, because there are always nine registers.                    |
+| <kbd>Space</kbd>              | Toggle `includeInSearch` for the cash register under the cursor.                                                                            |
+| <kbd>Enter</kbd>              | Select the highlighted cash register and close.                                                                                             |
+| <kbd>Tab</kbd>                | Select the highlighted cash register and stay open.                                                                                         |
+| <kbd>]</kbd> / <kbd>[</kbd>   | Swap the highlighted cash register with the one below / above. Contents move, but colors stay put, so this is one way to re-color a search. |
+| <kbd>q</kbd> / <kbd>Esc</kbd> | Apply and close the drawer.                                                                                                                 |
+| <kbd>Ctrl-c</kbd>             | Close the drawer and undo everything changed since it was opened.                                                                           |
 
 ### Command
 
 Cash.nvim takes a single user command, with verbs.
 
-| Command             | Does                                                     |
-| ------------------- | -------------------------------------------------------- |
-| `:Cash`             | Open the cash drawer.                                    |
-| `:Cash use {n}`     | Select cash register _n_, the same as <kbd>?</kbd>_n_.   |
-| `:Cash include {n}` | Add cash register _n_ to the search set (set `includeInSearch`).                 |
-| `:Cash exclude {n}` | Remove cash register _n_ from the search set.                                               |
-| `:Cash toggle {n}`  | Toggle whether or not cash register _n_ is included in the search set.                                                 |
-| `:Cash clear [{n}]` | Empty cash register _n_, or the current working cash register if the _n_ arg is omitted. |
-| `:Cash reset`       | Empty all nine cash registers and select cash register 1.           |
-| `:Cash hide`        | Hide all search highlights. The same as `:nohlsearch` (`:noh`). |
-| `:Cash show`        | Bring search highlights back. They will also come back when using `n`/`N`.                                           |
+| Command             | Does                                                                                               |
+| ------------------- | -------------------------------------------------------------------------------------------------- |
+| `:Cash`             | Open the cash drawer.                                                                              |
+| `:Cash use {n}`     | Select cash register _n_, the same as <kbd>?</kbd>_n_.                                             |
+| `:Cash include {n}` | Add cash register _n_ to the search set (`includeInSearch` = `true`).                              |
+| `:Cash exclude {n}` | Remove cash register _n_ from the search set. (`includeInSearch` = `false`).                       |
+| `:Cash toggle {n}`  | Toggle whether or not cash register _n_ is included in the search set.                             |
+| `:Cash clear [{n}]` | Empty cash register _n_, or the current working cash register if the _n_ arg is omitted.           |
+| `:Cash reset`       | Empty all nine cash registers and select cash register 1.                                          |
+| `:Cash hide`        | Hide all search highlights. The same as `:nohlsearch` (`:noh`). The registers keep their contents. |
+| `:Cash show`        | Bring search highlights back. They will also come back when using `n`/`N`.                         |
 
 ### Case Sensitivity
 
@@ -145,14 +149,14 @@ Cash.nvim also maps <kbd>n</kbd> and <kbd>N</kbd> in normal mode, so that they
 can jump between the matches of more than one cash register (see
 [Include in Search](#include-in-search)). Whenever the search set is a single
 cash register, <kbd>n</kbd> and <kbd>N</kbd> use their native (Neo-)Vim
-functions. Set `manageJumps = false` to make `includeInSearch` a no-op and
-leave the <kbd>n</kbd> and <kbd>N</kbd> keys alone entirely.
+functions. Set `manageJumps = false` to make `includeInSearch` a no-op and leave
+the <kbd>n</kbd> and <kbd>N</kbd> keys alone entirely.
 
 If you map <kbd>n</kbd> yourself (`vim.keymap.set('n', 'n', 'nzz')` is a common
 one, and used to be suggested below), your mapping replaces Cash.nvim's and
-include-in-search will silently stop working. Map
-`require('cash').nextMatch` / `require('cash').previousMatch` if you want to
-maintain Cash.nvim's intended behavior.
+include-in-search will silently stop working. Map `require('cash').nextMatch` /
+`require('cash').previousMatch` if you want to maintain Cash.nvim's intended
+behavior.
 
 ## 💱 Customization
 
@@ -201,15 +205,15 @@ maintain Cash.nvim's intended behavior.
 
 ### Options Table
 
-| Option                                    | Data Type                                      | Default   | Description                                                                                                                                                                                                                                                                                                                |
-| ----------------------------------------- | ---------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `centerAfterSearch`                       | boolean                                        | `true`    | Each time you perform a search, Cash.nvim will center the current window for you.<br />If you don't like this behavior, you can disable it by setting this option to `false`.                                                                                                                                              |
-| `colors.defaultBG` and `colors.defaultFG` | string (`'#RRGGBB'`)                           | see above | These will be the highlight background and foreground, respectively, for highlight colors that do not have a `bg` or `fg` color specified, respectively.                                                                                                                                                                   |
-| `colors.highlightColors`                  | list of 9 `{ bg = string, fg = string }` items | see above | This is a table of 9 values, each with a `bg` and `fg` field. These define the highlight colors for each of the 9 available cash registers. If a `bg` or `fg` value is not specified in one of these entries, then the `colors.defaultBG`/`colors.defaultFG` color will be used. Colors should be of the form `'#RRGGBB'`. |
-| `disableStarPoundJump`                    | boolean                                        | `true`    | By default, Vim will jump you to the next occurrence of a search term if you initiate the search using <kbd>\*</kbd> or <kbd>#</kbd>. Cash.nvim disables this by default. You can preserve Vim's default behavior by setting this option to `false`.                                                                       |
-| `manageJumps`                             | boolean                                        | `true`    | Cash.nvim maps <kbd>n</kbd> and <kbd>N</kbd> so that they can jump between the matches of every cash register in the search set. With only one cash register in the search set, the mapping uses Vim's default behavior, so nothing changes until you turn `includeInSearch` on for more than one cash register. Set this to `false` to leave the keys alone, which also turns `includeInSearch` into a no-op. |
-| `respectHLSearch`                         | boolean                                        | `false`   | In order to enable search highlighting for the current search, you need to enable the `hlsearch` Vim option. Cash.nvim does this automatically, but if you want your `hlsearch` setting to be left as-is, then you can set this option to `true`.                                                                          |
-| `ui.border`                               | string or table                                | `'rounded'` | The cash drawer's border, in any form `nvim_open_win` accepts. |
+| Option                                    | Data Type                                      | Default     | Description                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------------------------- | ---------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `centerAfterSearch`                       | boolean                                        | `true`      | Each time you perform a search, Cash.nvim will center the current window for you.<br />If you don't like this behavior, you can disable it by setting this option to `false`.                                                                                                                                                                                                                                  |
+| `colors.defaultBG` and `colors.defaultFG` | string (`'#RRGGBB'`)                           | see above   | These will be the highlight background and foreground, respectively, for highlight colors that do not have a `bg` or `fg` color specified, respectively.                                                                                                                                                                                                                                                       |
+| `colors.highlightColors`                  | list of 9 `{ bg = string, fg = string }` items | see above   | This is a table of 9 values, each with a `bg` and `fg` field. These define the highlight colors for each of the 9 available cash registers. If a `bg` or `fg` value is not specified in one of these entries, then the `colors.defaultBG`/`colors.defaultFG` color will be used. Colors should be of the form `'#RRGGBB'`.                                                                                     |
+| `disableStarPoundJump`                    | boolean                                        | `true`      | By default, Vim will jump you to the next occurrence of a search term if you initiate the search using <kbd>\*</kbd> or <kbd>#</kbd>. Cash.nvim disables this by default. You can preserve Vim's default behavior by setting this option to `false`.                                                                                                                                                           |
+| `manageJumps`                             | boolean                                        | `true`      | Cash.nvim maps <kbd>n</kbd> and <kbd>N</kbd> so that they can jump between the matches of every cash register in the search set. With only one cash register in the search set, the mapping uses Vim's default behavior, so nothing changes until you turn `includeInSearch` on for more than one cash register. Set this to `false` to leave the keys alone, which also turns `includeInSearch` into a no-op. |
+| `respectHLSearch`                         | boolean                                        | `false`     | In order to enable search highlighting for the current search, you need to enable the `hlsearch` Vim option. Cash.nvim does this automatically, but if you want your `hlsearch` setting to be left as-is, then you can set this option to `true`.                                                                                                                                                              |
+| `ui.border`                               | string or table                                | `'rounded'` | The cash drawer's border, in any form `nvim_open_win` accepts.                                                                                                                                                                                                                                                                                                                                                 |
 
 ## 💴 Other Tips
 
@@ -265,9 +269,9 @@ I am very open to feedback and criticism.
 
 ### Bronze Tier Sponsors
 
--   🥉 [collindutter](https://github.com/collindutter)
--   🥉
-    [`<Your name here>`](https://github.com/nullromo/cash.nvim/blob/main/README.md#-donating)
+- 🥉 [collindutter](https://github.com/collindutter)
+- 🥉
+  [`<Your name here>`](https://github.com/nullromo/cash.nvim/blob/main/README.md#-donating)
 
 ## 🤑 Donating
 

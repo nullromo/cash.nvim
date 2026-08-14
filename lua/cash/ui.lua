@@ -5,8 +5,12 @@
 -- dot, the match count, the header, the legend, the key hints -- is an
 -- extmark. So there is no chrome for an edit to damage, the cursor can never
 -- get into it, and G lands on cash register 9 rather than on a key hint.
+--
+-- That is what lets the patterns be edited with ordinary vim commands. cw, D,
+-- A, x and macros all work on the line under the cursor, and none of them need
+-- a mapping, because the line is nothing but the pattern. Only the commands
+-- that change the *number* of lines are a problem, and those are guarded.
 
-local highlights = require('cash.highlights')
 local jump = require('cash.jump')
 local util = require('cash.util')
 
@@ -49,13 +53,21 @@ local pad = function(text, width)
 end
 
 -- how many matches a cash register has in the buffer the user came from.
--- Bounded on both sides: maxcount stops a pattern that matches nearly every
+--
+-- Bounded on both sides: maxcount stops a pattern matching nearly every
 -- character from being counted to the end, and timeout stops an expensive one
--- from being counted at all
-local matchCount = function(originWindow, matchPattern)
-    local counted = nil
+-- from being counted at all. Bounded is not cheap enough on its own, though,
+-- because the counts are redrawn on every keystroke while a pattern is being
+-- typed -- so an answer is only worked out for a pattern that has not been
+-- asked about before
+local matchCount = function(matchPattern)
+    local cached = drawer.counts[matchPattern]
+    if cached ~= nil then
+        return cached
+    end
 
-    pcall(vim.api.nvim_win_call, originWindow, function()
+    local counted = nil
+    pcall(vim.api.nvim_win_call, drawer.originWindow, function()
         counted = vim.fn.searchcount({
             pattern = matchPattern,
             maxcount = 999,
@@ -63,13 +75,13 @@ local matchCount = function(originWindow, matchPattern)
         })
     end)
 
-    if counted == nil or counted.total == nil then
-        return ''
+    local answer = ''
+    if counted ~= nil and counted.total ~= nil then
+        answer = counted.incomplete == 2 and '999+' or tostring(counted.total)
     end
-    if counted.incomplete == 2 then
-        return '999+'
-    end
-    return tostring(counted.total)
+
+    drawer.counts[matchPattern] = answer
+    return answer
 end
 
 -- one row of the gutter, as extmark chunks.
@@ -79,18 +91,18 @@ end
 -- row the cursor is on
 local gutterFor = function(cash, index)
     local register = cash.state.cashRegisters[index]
-    local isWorking = index == cash.state.currentIndex
+    local isSelected = index == cash.state.currentIndex
     local colored = 'CashRegisterFg' .. index
 
     return {
         { '  ' },
-        { isWorking and '▸' or ' ', colored },
+        { isSelected and '▸' or ' ', colored },
         { ' ' },
         { tostring(index), 'CashRegister' .. index },
         { '  ' },
         {
-            (isWorking or register.includeInSearch) and '●' or '○',
-            (isWorking or register.includeInSearch) and colored or 'Comment',
+            (isSelected or register.includeInSearch) and '●' or '○',
+            (isSelected or register.includeInSearch) and colored or 'Comment',
         },
         { '  ' },
     }
@@ -164,22 +176,14 @@ local legendLines = function()
     return lines
 end
 
--- draws everything that is not the patterns themselves. Clears first, so that
--- it can be called again after anything at all has changed
-local render = function()
+-- draws everything that is not the patterns themselves. Called again after
+-- every change, including every keystroke while a pattern is being typed, so
+-- it never touches the buffer's text or the cursor
+local decorate = function()
     local cash = drawer.cash
     local buffer = drawer.buffer
 
     vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
-
-    local patterns = {}
-    for index = 1, 9 do
-        table.insert(patterns, cash.state.cashRegisters[index].pattern)
-    end
-
-    vim.bo[buffer].modifiable = true
-    vim.api.nvim_buf_set_lines(buffer, 0, -1, false, patterns)
-    vim.bo[buffer].modifiable = false
 
     for index = 1, 9 do
         local line = index - 1
@@ -201,10 +205,7 @@ local render = function()
                 hl_group = 'CashRegister' .. index,
             })
 
-            local count = matchCount(
-                drawer.originWindow,
-                util.resolveCase(register.pattern)
-            )
+            local count = matchCount(util.resolveCase(register.pattern))
             vim.api.nvim_buf_set_extmark(buffer, namespace, line, 0, {
                 virt_text = {
                     {
@@ -230,6 +231,76 @@ local render = function()
     })
 end
 
+-- runs a write that the plugin made itself rather than the user: opening,
+-- swapping, repairing the row count.
+--
+-- undolevels is dropped for the write so that none of it lands in the undo
+-- history. u inside the drawer should undo what the user typed and nothing
+-- else -- otherwise u at the wrong moment restores the empty buffer the drawer
+-- started as, and the guard below reads that back as nine empty cash registers
+local writeWithoutUndo = function(write)
+    local buffer = drawer.buffer
+
+    drawer.writing = true
+
+    local undolevels = vim.bo[buffer].undolevels
+    vim.bo[buffer].undolevels = -1
+    write(buffer)
+    vim.bo[buffer].undolevels = undolevels
+
+    drawer.writing = false
+end
+
+local writeLines = function()
+    local patterns = {}
+    for index = 1, 9 do
+        table.insert(patterns, drawer.cash.state.cashRegisters[index].pattern)
+    end
+
+    writeWithoutUndo(function(buffer)
+        vim.api.nvim_buf_set_lines(buffer, 0, -1, false, patterns)
+    end)
+end
+
+local render = function()
+    writeLines()
+    decorate()
+end
+
+-- there are always nine cash registers, so there are always nine lines.
+--
+-- dd, o and insert-mode <CR> are mapped away, but this is the backstop for
+-- everything that was not thought of: a linewise paste, a visual line delete,
+-- :move, a macro. Repairing is better than refusing, since refusing would mean
+-- watching every route into the buffer rather than the one invariant
+local enforceNineLines = function()
+    local count = vim.api.nvim_buf_line_count(drawer.buffer)
+    if count == 9 then
+        return
+    end
+
+    writeWithoutUndo(function(buffer)
+        if count > 9 then
+            vim.api.nvim_buf_set_lines(buffer, 9, -1, false, {})
+        else
+            local padding = {}
+            for _ = count + 1, 9 do
+                table.insert(padding, '')
+            end
+            vim.api.nvim_buf_set_lines(buffer, count, count, false, padding)
+        end
+    end)
+end
+
+-- reads the buffer back into the cash registers. The buffer is the truth while
+-- the drawer is open, because it is what the user has been typing into
+local syncFromBuffer = function()
+    local lines = vim.api.nvim_buf_get_lines(drawer.buffer, 0, 9, false)
+    for index = 1, 9 do
+        drawer.cash.state.cashRegisters[index].pattern = lines[index] or ''
+    end
+end
+
 ui.isOpen = function()
     return drawer ~= nil and vim.api.nvim_win_is_valid(drawer.window)
 end
@@ -247,32 +318,76 @@ ui.close = function()
     end
 end
 
--- the cash register the cursor is on
+-- everything the user typed is already in the cash registers, because the
+-- preview put it there as they typed. What is left is the search register,
+-- which mirrors the selected cash register and would otherwise still hold what
+-- that register said when the drawer opened
+local apply = function()
+    local cash = drawer.cash
+    enforceNineLines()
+    syncFromBuffer()
+
+    local pattern = cash.state.cashRegisters[cash.state.currentIndex].pattern
+    vim.fn.setreg('/', pattern)
+
+    cash.updateHighlights()
+    ui.close()
+end
+
+-- puts back the cash registers exactly as they were when the drawer opened
+local discard = function()
+    local cash = drawer.cash
+    cash.state.cashRegisters = drawer.snapshot.cashRegisters
+    cash.state.currentIndex = drawer.snapshot.currentIndex
+
+    local pattern = cash.state.cashRegisters[cash.state.currentIndex].pattern
+    vim.fn.setreg('/', pattern)
+
+    cash.updateHighlights()
+    ui.close()
+end
+
 local registerUnderCursor = function()
     return vim.api.nvim_win_get_cursor(drawer.window)[1]
 end
 
+-- selecting a cash register searches for its pattern, and that has to happen
+-- in the window the user came from. Run with the drawer focused, the jump
+-- would land in the list of patterns instead
+local selectRegister = function(index)
+    local cash = drawer.cash
+    local originWindow = drawer.originWindow
+
+    if vim.api.nvim_win_is_valid(originWindow) then
+        vim.api.nvim_win_call(originWindow, function()
+            cash.setCashRegister(index)
+        end)
+    else
+        cash.setCashRegister(index)
+    end
+end
+
 local setUpKeymaps = function(cash)
     local buffer = drawer.buffer
-    local map = function(key, action)
-        vim.keymap.set('n', key, action, { buffer = buffer, nowait = true })
+    local map = function(mode, key, action)
+        vim.keymap.set(mode, key, action, { buffer = buffer, nowait = true })
     end
 
-    map('q', ui.close)
-    map('<Esc>', ui.close)
-    map('<C-c>', ui.close)
+    map('n', 'q', apply)
+    map('n', '<Esc>', apply)
+    map('n', '<C-c>', discard)
 
-    map('<CR>', function()
-        cash.setCashRegister(registerUnderCursor())
-        ui.close()
+    map('n', '<CR>', function()
+        selectRegister(registerUnderCursor())
+        apply()
     end)
 
-    map('<Tab>', function()
-        cash.setCashRegister(registerUnderCursor())
+    map('n', '<Tab>', function()
+        selectRegister(registerUnderCursor())
         render()
     end)
 
-    map('<Space>', function()
+    map('n', '<Space>', function()
         local index = registerUnderCursor()
         if index == cash.state.currentIndex then
             vim.notify(
@@ -283,7 +398,7 @@ local setUpKeymaps = function(cash)
             return
         end
         cash.toggleIncludeInSearch(index)
-        render()
+        decorate()
     end)
 
     -- swapping moves the pattern and the switch, but not the color: that
@@ -295,6 +410,10 @@ local setUpKeymaps = function(cash)
             if other < 1 or other > 9 then
                 return
             end
+
+            -- whatever is in the buffer is newer than what is in the state,
+            -- so it is read back before anything is moved around
+            syncFromBuffer()
 
             local registers = cash.state.cashRegisters
             registers[index], registers[other] =
@@ -314,10 +433,29 @@ local setUpKeymaps = function(cash)
         end
     end
 
-    map(']', swap(1))
-    map('[', swap(-1))
+    map('n', ']', swap(1))
+    map('n', '[', swap(-1))
 
-    map('?', function()
+    -- there are always nine rows, so dd empties one rather than removing it.
+    -- D, C, cc, S and cw need no mapping at all: the line is nothing but the
+    -- pattern, so they already do the right thing
+    map('n', 'dd', function()
+        local index = registerUnderCursor()
+        vim.api.nvim_buf_set_lines(
+            drawer.buffer,
+            index - 1,
+            index,
+            false,
+            { '' }
+        )
+    end)
+
+    -- these would add a row
+    map('n', 'o', '<Nop>')
+    map('n', 'O', '<Nop>')
+    map('i', '<CR>', '<Esc>')
+
+    map('n', '?', function()
         vim.notify(
             'Cash.nvim: the detail pane is not built yet',
             vim.log.levels.INFO
@@ -358,18 +496,16 @@ ui.open = function(cash)
         col = math.max(0, math.floor((vim.o.columns - WIDTH) / 2)),
         style = 'minimal',
         border = cash.opts.ui.border,
+        -- the leading dash continues the border rather than sitting apart
+        -- from it, which needs the title drawn in the border's own colors
+        title = '─ Cash.nvim Registers ',
+        title_pos = 'left',
         -- opening a window fires WinNew while it is still showing the buffer
         -- the user came from, so the update that triggers would add a match to
         -- the drawer's window before the drawer's buffer is even in it. The
         -- match would then stay there, on a buffer full of search patterns.
         -- Nothing needs updating for a window that is excluded anyway
         noautocmd = true,
-        -- the leading dash continues the border rather than sitting apart
-        -- from it, which needs the title drawn in the border's own colors.
-        -- FloatTitle is a global group, so it is redirected for this window
-        -- only
-        title = '─ Cash.nvim Registers ',
-        title_pos = 'left',
     })
 
     vim.wo[window].wrap = false
@@ -383,7 +519,7 @@ ui.open = function(cash)
     --
     -- Search, CurSearch and IncSearch because the drawer's buffer holds the
     -- search patterns as literal text, so vim's own hlsearch matches them
-    -- here. That is not the ledger and excluding the window from it does not
+    -- here. That is not the ledger, and excluding the window from it does not
     -- help: it is vim highlighting @/ wherever it appears. Left alone, the
     -- pattern the user is searching for wears CurSearch in the drawer as soon
     -- as the cursor reaches its row, and a pattern that occurs inside another
@@ -403,6 +539,18 @@ ui.open = function(cash)
         window = window,
         cash = cash,
         originWindow = originWindow,
+        -- what <C-c> puts back
+        snapshot = {
+            cashRegisters = vim.deepcopy(cash.state.cashRegisters),
+            currentIndex = cash.state.currentIndex,
+        },
+        -- match counts already worked out, keyed by match pattern. The buffer
+        -- behind cannot change while the drawer is open, so an answer stays
+        -- good for as long as the drawer does
+        counts = {},
+        -- true while the plugin is writing to the buffer, so that its own
+        -- writes do not come back round as user edits
+        writing = false,
     }
 
     render()
@@ -410,7 +558,32 @@ ui.open = function(cash)
 
     vim.api.nvim_win_set_cursor(window, { cash.state.currentIndex, 0 })
 
-    -- closing the window by any other route still has to forget the drawer
+    -- the preview. Editing a pattern updates the highlights in the buffers
+    -- behind the drawer as it is typed, which is the reason to edit here
+    -- rather than at a prompt
+    vim.api.nvim_create_autocmd({ 'TextChanged', 'TextChangedI' }, {
+        buffer = buffer,
+        callback = function()
+            if drawer == nil or drawer.writing then
+                return
+            end
+
+            enforceNineLines()
+            syncFromBuffer()
+
+            -- editing a search is a reason to show search highlighting again,
+            -- the same way searching is. Without this the preview shows
+            -- nothing at all after :nohlsearch
+            pcall(function()
+                vim.v.hlsearch = 1
+            end)
+
+            drawer.cash.updateHighlights()
+            decorate()
+        end,
+    })
+
+    -- closing by any other route still has to forget the drawer
     vim.api.nvim_create_autocmd('WinClosed', {
         pattern = tostring(window),
         once = true,
@@ -419,8 +592,5 @@ ui.open = function(cash)
         end,
     })
 end
-
--- kept out of highlights.lua, which has no business knowing the drawer exists
-ui.namespace = namespace
 
 return ui
