@@ -121,6 +121,24 @@ CashModule.toggleIncludeInSearch = function(index)
     )
 end
 
+-- empties one cash register, or the selected one if no index is given
+CashModule.clearCashRegister = function(index)
+    index = index or CashModule.state.currentIndex
+    if rejectIndex(index) then
+        return
+    end
+
+    CashModule.state.cashRegisters[index].pattern = ''
+
+    -- the search register only mirrors the selected cash register, so it is
+    -- only wrong when that is the one being emptied
+    if index == CashModule.state.currentIndex then
+        vim.fn.setreg('/', '')
+    end
+
+    CashModule.updateHighlights()
+end
+
 -- what n and N do. Exported so that anyone who wants their own n -- to center
 -- the screen after it, say -- can wrap these rather than replace them, which
 -- would take the search set out of the picture without saying so

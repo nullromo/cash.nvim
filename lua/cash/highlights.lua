@@ -86,6 +86,39 @@ local pruneClosedWindows = function(liveWindows)
     end
 end
 
+-- a cash register's color as a foreground, for the places in the drawer where
+-- a full swatch would be too heavy: the include dot and the match count.
+--
+-- A color chosen to be a background is not necessarily legible as a
+-- foreground. waveBlue2, cash register 9's default, is dark enough to carry
+-- light text but nearly invisible as text itself, so anything too dark is
+-- lightened until it is not. Blending toward white raises perceived brightness
+-- by exactly the amount blended, which is what makes the arithmetic this short
+local readableForeground = function(hex)
+    local red = tonumber(hex:sub(2, 3), 16)
+    local green = tonumber(hex:sub(4, 5), 16)
+    local blue = tonumber(hex:sub(6, 7), 16)
+
+    -- the usual weighting for perceived brightness, 0 for black and 1 for
+    -- white
+    local brightness = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
+
+    local floor = 0.55
+    if brightness < floor then
+        local blend = (floor - brightness) / (1 - brightness)
+        red = red + (255 - red) * blend
+        green = green + (255 - green) * blend
+        blue = blue + (255 - blue) * blend
+    end
+
+    return string.format(
+        '#%02X%02X%02X',
+        math.floor(red + 0.5),
+        math.floor(green + 0.5),
+        math.floor(blue + 0.5)
+    )
+end
+
 -- stores the colors and creates the highlight group for each cash register
 highlights.setup = function(colorOpts)
     colors = colorOpts
@@ -96,6 +129,12 @@ highlights.setup = function(colorOpts)
         vim.cmd.highlight(
             'CashRegister' .. index,
             'guibg=' .. bg .. ' guifg=' .. fg
+        )
+
+        -- the same color as text rather than as a swatch
+        vim.cmd.highlight(
+            'CashRegisterFg' .. index,
+            'guifg=' .. readableForeground(bg)
         )
     end
 end
@@ -119,10 +158,26 @@ highlights.update = function(cashRegisters, currentIndex)
     local highlightingIsOn = vim.v.hlsearch ~= 0
 
     -- ask vim which windows exist. Note that this covers all windows in all
-    -- tabs
+    -- tabs.
+    --
+    -- The drawer's own window is left out. Its buffer holds the search
+    -- patterns as literal text, so matching them there would paint the drawer
+    -- in the very colors it is trying to explain.
+    --
+    -- The mark is on the buffer rather than the window because nvim_open_win
+    -- fires WinNew and WinEnter before it returns, so an update runs while a
+    -- window-local mark would still be unset. The buffer is made first, and
+    -- can be marked before anything can look at it
     local liveWindows = {}
     for _, windowID in ipairs(vim.api.nvim_list_wins()) do
-        liveWindows[windowID] = true
+        local isDrawer = pcall(
+            vim.api.nvim_buf_get_var,
+            vim.api.nvim_win_get_buf(windowID),
+            'cashDrawer'
+        )
+        if not isDrawer then
+            liveWindows[windowID] = true
+        end
     end
 
     pruneClosedWindows(liveWindows)

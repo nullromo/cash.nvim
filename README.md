@@ -90,20 +90,52 @@ Each cash register keeps its own case sensitivity. If one register holds `\Cfoo`
 and another holds `bar`, the first stays case-sensitive and the second still
 follows `ignorecase`.
 
-### Clear Cash Registers
+### The Cash Drawer (cha-ching!)
 
-To clear the contents of the working cash register, use `:clc`. This will also
-set Vim's search to an empty string.
+`:Cash` opens a popup showing all nine cash registers at once: their contents,
+their colors, which ones <kbd>n</kbd>/<kbd>N</kbd> will visit, and how many
+matches each one has in the buffer you came from. To use the drawer, refer to
+the table below.
 
-To clear all cash registers and reset the plugin to its initial state, use the
-`:ResetCashRegisters` user command (or the
-`require('cash').resetCashRegisters()` function). This will set Vim's search
-register to an empty string and clear the contents of all cash registers.
+| Key                            | Does                                                                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| <kbd>j</kbd> / <kbd>k</kbd>     | Move between cash registers.                                                                                        |
+| <kbd>Space</kbd>               | Toggle `includeInSearch` for the cash register under the cursor.                                                    |
+| <kbd>Enter</kbd>               | Select the highlighted cash register and close.                                                                      |
+| <kbd>Tab</kbd>                 | Select the highlighted cash register and stay open.                                                                  |
+| <kbd>]</kbd> / <kbd>[</kbd>    | Swap the highlighted cash register with the one below / above. Contents move, but colors stay put, so this is one way to re-color a search. |
+| <kbd>q</kbd> / <kbd>Esc</kbd>  | Close the drawer.                                                                                                              |
+
+### Command
+
+Cash.nvim takes a single user command, with verbs.
+
+| Command             | Does                                                     |
+| ------------------- | -------------------------------------------------------- |
+| `:Cash`             | Open the cash drawer.                                    |
+| `:Cash use {n}`     | Select cash register _n_, the same as <kbd>?</kbd>_n_.   |
+| `:Cash include {n}` | Add cash register _n_ to the search set (set `includeInSearch`).                 |
+| `:Cash exclude {n}` | Remove cash register _n_ from the search set.                                               |
+| `:Cash toggle {n}`  | Toggle whether or not cash register _n_ is included in the search set.                                                 |
+| `:Cash clear [{n}]` | Empty cash register _n_, or the current working cash register if the _n_ arg is omitted. |
+| `:Cash reset`       | Empty all nine cash registers and select cash register 1.           |
+| `:Cash hide`        | Hide all search highlights. The same as `:nohlsearch` (`:noh`). |
+| `:Cash show`        | Bring search highlights back. They will also come back when using `n`/`N`.                                           |
 
 ### Case Sensitivity
 
 Cash.nvim will respect the `ignorecase` option, but the case sensitivity can be
 overridden in the search pattern as normal using `\c` or `\C` (see `:help /\c`).
+
+### Clear Cash Registers
+
+To clear the contents of the working cash register, use `:clc`. This will also
+set Vim's search to an empty string.
+
+To clear all cash registers and reset the plugin to its initial state, use
+`:Cash reset` (or the `require('cash').resetCashRegisters()` function). This
+will set Vim's search register to an empty string and clear the contents of all
+cash registers.
 
 ## 💶 Compatibility Issues / Warnings
 
@@ -159,6 +191,11 @@ maintain Cash.nvim's intended behavior.
     -- leave vim's hlsearch setting alone. This plugin overrides hlsearch by
     -- default
     respectHLSearch = false,
+    -- the cash drawer, which :Cash opens
+    ui = {
+        -- the drawer's border, in any form nvim_open_win accepts
+        border = 'rounded',
+    },
 }
 ```
 
@@ -172,6 +209,7 @@ maintain Cash.nvim's intended behavior.
 | `disableStarPoundJump`                    | boolean                                        | `true`    | By default, Vim will jump you to the next occurrence of a search term if you initiate the search using <kbd>\*</kbd> or <kbd>#</kbd>. Cash.nvim disables this by default. You can preserve Vim's default behavior by setting this option to `false`.                                                                       |
 | `manageJumps`                             | boolean                                        | `true`    | Cash.nvim maps <kbd>n</kbd> and <kbd>N</kbd> so that they can jump between the matches of every cash register in the search set. With only one cash register in the search set, the mapping uses Vim's default behavior, so nothing changes until you turn `includeInSearch` on for more than one cash register. Set this to `false` to leave the keys alone, which also turns `includeInSearch` into a no-op. |
 | `respectHLSearch`                         | boolean                                        | `false`   | In order to enable search highlighting for the current search, you need to enable the `hlsearch` Vim option. Cash.nvim does this automatically, but if you want your `hlsearch` setting to be left as-is, then you can set this option to `true`.                                                                          |
+| `ui.border`                               | string or table                                | `'rounded'` | The cash drawer's border, in any form `nvim_open_win` accepts. |
 
 ## 💴 Other Tips
 

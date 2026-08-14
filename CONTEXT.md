@@ -122,6 +122,34 @@ updated. Anything that can invalidate the highlights just calls it.
 In code: `highlights.update(cashRegisters, currentIndex)`, wrapped as
 `CashModule.updateHighlights()`.
 
+## The drawer
+
+The popup `:Cash` opens. In code: `lua/cash/ui.lua`.
+
+> The drawer's buffer holds nothing but the nine search patterns, one per line.
+
+Everything else on screen is an extmark: the marker, the register number, the
+include dot and the match count are inline `virt_text`; the legend, the rules,
+the search set line and the key hints are `virt_lines` below cash register 9.
+The column headings are a **winbar**, not a virtual line — virtual lines above
+the first line of a buffer are never drawn, and a winbar belongs to the window
+rather than the buffer, so the cursor cannot reach it either.
+
+This is what makes editing safe: there is no chrome for an edit to damage,
+because the chrome is not text. <kbd>G</kbd> lands on cash register 9 rather
+than on a key hint, and no motion needs a special case.
+
+Two things the drawer has to do that are easy to get wrong:
+
+- Its buffer is left out of `updateHighlights`. It holds the search patterns as
+  literal text, so matching them there would paint the drawer in the very
+  colors it is explaining. The mark is on the **buffer**, and the window is
+  opened with `noautocmd`, because `nvim_open_win` fires `WinNew` while the new
+  window is still showing the buffer the user came from.
+- Match counts are worked out with `nvim_win_call` against the window the user
+  came from. Run in the drawer, `searchcount()` would count matches in the list
+  of patterns rather than in their buffer.
+
 ## Highlight group
 
 The Vim highlight group carrying a cash register's colors, named

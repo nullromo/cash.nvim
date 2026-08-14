@@ -1,3 +1,5 @@
+local ui = require('cash.ui')
+
 local keymaps = {}
 
 -- adds a mapping without disturbing existing mappings
@@ -167,12 +169,108 @@ keymaps.setUpKeymaps = function(cash)
         )
     end
 
-    -- clear all searches and start back at index 1
-    vim.api.nvim_create_user_command(
-        'ResetCashRegisters',
-        cash.resetCashRegisters,
-        { bang = true }
-    )
+    -- one command with verbs, rather than a command per action, so that this
+    -- plugin takes one name in the command namespace instead of nine
+    local verbs = {
+        [''] = function()
+            ui.open(cash)
+        end,
+        use = function(argument)
+            cash.setCashRegister(tonumber(argument))
+        end,
+        include = function(argument)
+            cash.setIncludeInSearch(tonumber(argument), true)
+        end,
+        exclude = function(argument)
+            cash.setIncludeInSearch(tonumber(argument), false)
+        end,
+        toggle = function(argument)
+            cash.toggleIncludeInSearch(tonumber(argument))
+        end,
+        clear = function(argument)
+            cash.clearCashRegister(argument and tonumber(argument))
+        end,
+        reset = function()
+            cash.resetCashRegisters()
+        end,
+        -- hide and show drive v:hlsearch, which every cash register follows,
+        -- so :Cash hide is exactly :nohlsearch and the next search undoes it
+        hide = function()
+            pcall(function()
+                vim.v.hlsearch = 0
+            end)
+            cash.updateHighlights()
+        end,
+        show = function()
+            pcall(function()
+                vim.v.hlsearch = 1
+            end)
+            cash.updateHighlights()
+        end,
+    }
+
+    local takesIndex = {
+        use = true,
+        include = true,
+        exclude = true,
+        toggle = true,
+        clear = true,
+    }
+
+    vim.api.nvim_create_user_command('Cash', function(opts)
+        local words =
+            vim.split(vim.trim(opts.args), '%s+', { trimempty = true })
+        local verb = words[1] or ''
+        local action = verbs[verb]
+
+        if action == nil then
+            -- echoed rather than raised. vim.notify at ERROR level throws
+            -- from inside a command, which brings up a hit-enter prompt for
+            -- what is only a typo; vim reports an unknown command itself
+            -- without stopping to ask
+            vim.api.nvim_echo({
+                {
+                    'Cash.nvim: "' .. verb .. '" is not a :Cash command',
+                    'ErrorMsg',
+                },
+            }, true, {})
+            return
+        end
+
+        action(words[2])
+    end, {
+        nargs = '*',
+        desc = 'Cash.nvim: open the cash drawer, or act on a cash register',
+        complete = function(argLead, cmdLine)
+            local words =
+                vim.split(vim.trim(cmdLine), '%s+', { trimempty = true })
+
+            -- words[1] is the command itself, so a verb is already in place
+            -- once there are two words and the cursor has moved past the
+            -- second
+            local haveVerb = #words > 2 or (#words == 2 and argLead == '')
+
+            local candidates = {}
+            if haveVerb then
+                if takesIndex[words[2]] then
+                    for index = 1, 9 do
+                        table.insert(candidates, tostring(index))
+                    end
+                end
+            else
+                for verb in pairs(verbs) do
+                    if verb ~= '' then
+                        table.insert(candidates, verb)
+                    end
+                end
+                table.sort(candidates)
+            end
+
+            return vim.tbl_filter(function(candidate)
+                return candidate:sub(1, #argLead) == argLead
+            end, candidates)
+        end,
+    })
 end
 
 return keymaps
