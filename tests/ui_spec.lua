@@ -11,12 +11,12 @@ return function(h)
     local cash = require('cash')
     local ui = require('cash.ui')
 
-    local function fresh()
+    local function fresh(opts)
         ui.close()
         vim.cmd('silent! tabonly')
         vim.cmd('silent! only')
         vim.opt.ignorecase = false
-        cash.setup({})
+        cash.setup(opts or {})
         cash.resetCashRegisters()
         vim.api.nvim_buf_set_lines(
             0,
@@ -600,6 +600,136 @@ return function(h)
 
     ----------------------------------------------------------------------
 
+    h.group('the detail pane')
+
+    do
+        -- the drawer and the pane side by side need more room than a headless
+        -- run gives by default, and openPane refuses rather than showing
+        -- something clipped in half
+        local columns = vim.o.columns
+        vim.o.columns = 120
+
+        fresh()
+        cash.setSearch('foo')
+        cash.setCashRegister(2)
+        cash.setSearch('bar')
+        cash.setCashRegister(1)
+
+        vim.cmd('Cash')
+        h.check('it starts closed', not ui.isOpenPane())
+
+        press('?')
+        h.check('? opens it', ui.isOpenPane())
+
+        local function paneText()
+            return table.concat(ui.paneContents(), '\n')
+        end
+
+        press('2G')
+        vim.cmd('doautocmd CursorMoved')
+        h.check(
+            'it names the cash register under the cursor',
+            paneText():find('cash register 2', 1, true) ~= nil,
+            paneText()
+        )
+
+        -- the resolved form is the one vim is actually given, and is not
+        -- shown anywhere else
+        h.check(
+            'the contents as typed, and the pattern vim is really given',
+            paneText():find('contents', 1, true) ~= nil
+                and paneText():find('match pattern', 1, true) ~= nil
+                and paneText():find('\\Cbar', 1, true) ~= nil,
+            paneText()
+        )
+        h.check(
+            'whether it is in the search set',
+            paneText():find('include in search', 1, true) ~= nil,
+            paneText()
+        )
+
+        -- the ledger, which nothing else surfaces. This is issue #3's real ask
+        h.check(
+            'and the windows carrying a match for it',
+            paneText():find('matching window IDs%s+%d+') ~= nil,
+            paneText()
+        )
+
+        -- the selected cash register never has a ledger entry, because it is
+        -- drawn by vim's hlsearch rather than by a match. The selected line is
+        -- what accounts for that
+        press('1G')
+        vim.cmd('doautocmd CursorMoved')
+        h.check(
+            'it says which cash register is the selected one',
+            paneText():find('selected', 1, true) ~= nil,
+            paneText()
+        )
+        -- the selected cash register has no matchadd of its own -- it is
+        -- drawn by hlsearch -- but its pattern is still visibly matching in
+        -- the window behind, so it must be listed. Reporting the ledger here
+        -- said "none" while the text was lit up on screen
+        h.check(
+            'the selected cash register still lists the window it matches in',
+            paneText():find('matching window IDs%s+%d+') ~= nil,
+            paneText()
+        )
+
+        -- the selected cash register is in the search set whatever its own
+        -- switch says, so the pane answers "will n visit it" rather than
+        -- reporting the flag. The dot in the drawer already works this way,
+        -- and the two must not contradict each other
+        h.check(
+            'the selected cash register always reads as included',
+            not cash.state.cashRegisters[1].includeInSearch
+                and paneText():find('include in search%s+yes') ~= nil,
+            paneText()
+        )
+
+        press('5G')
+        vim.cmd('doautocmd CursorMoved')
+        h.check(
+            'an empty cash register says so rather than showing nothing',
+            paneText():find('empty', 1, true) ~= nil,
+            paneText()
+        )
+
+        -- a pattern gets a matchadd whether or not it matches anything, so
+        -- the ledger claimed a window for one that occurs nowhere
+        edit('5Gazzzzzzzz<Esc>')
+        vim.cmd('doautocmd CursorMoved')
+        h.check(
+            'a pattern that matches nothing lists no windows',
+            paneText():find('matching window IDs%s+none') ~= nil,
+            paneText()
+        )
+
+        press('?')
+        h.check('? closes it again', not ui.isOpenPane())
+
+        press('?')
+        press('q')
+        h.check(
+            'and closing the drawer takes the pane with it',
+            not ui.isOpen() and not ui.isOpenPane()
+        )
+
+        -- narrower than the two side by side, so it says so instead of
+        -- drawing something unreadable
+        vim.o.columns = 80
+        vim.cmd('Cash')
+        press('?')
+        h.check(
+            'and it refuses to open where there is no room for it',
+            not ui.isOpenPane()
+        )
+        press('q')
+
+        vim.o.columns = columns
+    end
+
+    ----------------------------------------------------------------------
+
     h.group('drawer options')
 
     do
@@ -615,6 +745,20 @@ return function(h)
             'a named border is accepted',
             pcall(cash.setup, { ui = { border = 'single' } })
         )
+        h.check(
+            'detailPane must be a boolean',
+            not pcall(cash.setup, { ui = { detailPane = 'yes' } })
+        )
+
+        -- ui.detailPane decides only whether it is already open; ? still
+        -- toggles it either way
+        local columns = vim.o.columns
+        vim.o.columns = 120
+        fresh({ ui = { detailPane = true } })
+        vim.cmd('Cash')
+        h.check('detailPane = true opens it with the drawer', ui.isOpenPane())
+        press('q')
+        vim.o.columns = columns
     end
 
     ui.close()

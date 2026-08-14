@@ -173,6 +173,30 @@ Things the drawer has to do that are easy to get wrong:
   <kbd>u</kbd> can restore the empty buffer the drawer started as, which the
   row-count guard then reads back as nine empty cash registers.
 
+## The detail pane
+
+What <kbd>?</kbd> opens beside the drawer, in `ui.openPane`. Everything in it
+is about one cash register and does not fit on its row: the **match pattern**
+Vim is really given, whether it is included and whether it is selected, and the
+ledger entries for it — which windows are carrying a match.
+
+It labels the match pattern **match pattern**, exactly as it is named below.
+Its one departure is **contents** for the search pattern as typed, which is the
+word the drawer's own column heading already uses for it.
+
+It sits **beside** the drawer rather than under it because the drawer is
+already 23 rows tall, which is most of a small terminal. Height is the scarce
+direction; width is not. The cost is that the two together need 102 columns, and
+below that `openPane` says so rather than drawing something clipped.
+
+The selected cash register has no match of its own — it is drawn by Vim's
+`hlsearch` — so its **matching window IDs** cannot come from the ledger. The **selected** line
+is what accounts for that, rather than a sentence explaining it.
+
+With the pane open the drawer and the pane are placed as one block, so that
+`ui.position` still positions what the user is looking at rather than
+positioning the drawer and letting the pane hang off the side.
+
 ## The chooser
 
 The popup <kbd>?</kbd> brings up, in `ui.openChooser`. A different tool from

@@ -32,6 +32,10 @@ local namespace = vim.api.nvim_create_namespace('CashNvimDrawer')
 -- the drawer while it is open, nil the rest of the time
 local drawer = nil
 
+-- declared up here because render calls it and it is defined further down,
+-- where the rest of the detail pane lives
+local paneRender
+
 local FOOTER = {
     { '<CR>', 'select reg, close', '<Tab>', 'select reg, stay open' },
     { '<Space>', 'toggle include', ']/[', 'swap register down/up' },
@@ -325,6 +329,7 @@ end
 local render = function(forgetUndo)
     writeLines(forgetUndo)
     decorate()
+    paneRender()
 end
 
 -- there are always nine cash registers, so there are always nine lines.
@@ -370,8 +375,287 @@ local syncFromBuffer = function()
     end
 end
 
+-- ---------------------------------------------------------------- the pane
+--
+-- What ? opens beside the drawer. Everything here is about one cash register
+-- and does not fit on its row: the pattern vim is really matching, the color
+-- it came out as, and which windows are carrying a match for it.
+--
+-- It sits to the side rather than underneath because the drawer is already 23
+-- rows tall, which is most of a small terminal. Height is the scarce
+-- direction here; width is not.
+
+local PANE_WIDTH = 40
+
+-- wide enough for "matching window IDs", the longest label there is
+local PANE_LABEL = 20
+local PANE_VALUE = PANE_WIDTH - 2 - PANE_LABEL
+
+-- the windows where this cash register's pattern actually occurs.
+--
+-- Deliberately not the ledger. The ledger records where the plugin *added* a
+-- match, which is a different question, and answers this one wrongly in both
+-- directions: a pattern with a match added but nothing to match reads as
+-- present, and the selected cash register reads as absent even while it is lit
+-- up on screen, because it is drawn by hlsearch rather than by a match. The
+-- line says "matching window IDs", so it counts matches.
+--
+-- maxcount stops at the first hit, since the question is only whether there is
+-- one, and timeout keeps a pathological pattern from stalling the pane while
+-- someone is still typing it
+local matchingWindows = function(matchPattern)
+    local found = {}
+
+    for _, windowID in ipairs(vim.api.nvim_list_wins()) do
+        local buffer = vim.api.nvim_win_get_buf(windowID)
+        local isOurs = pcall(vim.api.nvim_buf_get_var, buffer, 'cashDrawer')
+
+        if not isOurs then
+            local counted = nil
+            pcall(vim.api.nvim_win_call, windowID, function()
+                counted = vim.fn.searchcount({
+                    pattern = matchPattern,
+                    maxcount = 1,
+                    timeout = 20,
+                })
+            end)
+
+            if counted ~= nil and (counted.total or 0) > 0 then
+                table.insert(found, windowID)
+            end
+        end
+    end
+
+    table.sort(found)
+    return found
+end
+
+local paneRows = function(cash, index)
+    local register = cash.state.cashRegisters[index]
+    local rows = {}
+
+    local line = function(label, chunks)
+        local row = newRow()
+        addChunk(row, '  ')
+        addChunk(row, pad(label, PANE_LABEL), label ~= '' and 'Comment' or nil)
+        for _, chunk in ipairs(chunks or {}) do
+            addChunk(row, chunk[1], chunk[2])
+        end
+        padRowTo(row, PANE_WIDTH)
+        table.insert(rows, row)
+    end
+
+    local yesNo = function(answer)
+        return { answer and { 'yes' } or { 'no', 'Comment' } }
+    end
+
+    local header = newRow()
+    addChunk(header, '  cash register ', 'Comment')
+    addChunk(header, tostring(index), 'CashRegister' .. index)
+    padRowTo(header, PANE_WIDTH)
+    table.insert(rows, header)
+    line('')
+
+    if register.pattern == '' then
+        line('contents', { { 'empty', 'Comment' } })
+    else
+        line('contents', {
+            { truncate(register.pattern, PANE_VALUE), 'CashRegister' .. index },
+        })
+
+        -- the match pattern: what vim is actually given, with the case flag
+        -- resolved onto the front of it. Usually the first thing to look at
+        -- when a search is behaving oddly. Named here exactly as CONTEXT.md
+        -- names it, since there is no friendlier word that is also accurate
+        local matchPattern = util.resolveCase(register.pattern)
+        if util.isUsablePattern(matchPattern) then
+            line('match pattern', { { truncate(matchPattern, PANE_VALUE) } })
+        else
+            line('match pattern', { { 'vim cannot compile', 'WarningMsg' } })
+        end
+    end
+
+    -- the selected cash register is in the search set whatever its own switch
+    -- says, so this answers "will n and N visit it" rather than reporting the
+    -- flag. That is also what the dot in the drawer shows, and the two would
+    -- contradict each other otherwise
+    local isSelected = index == cash.state.currentIndex
+    line('include in search', yesNo(register.includeInSearch or isSelected))
+    line('selected', yesNo(isSelected))
+    line('')
+
+    local found = {}
+    if register.pattern ~= '' then
+        local matchPattern = util.resolveCase(register.pattern)
+        if util.isUsablePattern(matchPattern) then
+            found = matchingWindows(matchPattern)
+        end
+    end
+
+    if #found == 0 then
+        line('matching window IDs', { { 'none', 'Comment' } })
+    else
+        local windows = {}
+        for _, windowID in ipairs(found) do
+            table.insert(windows, tostring(windowID))
+        end
+        line('matching window IDs', {
+            { truncate(table.concat(windows, '  '), PANE_VALUE), 'Comment' },
+        })
+    end
+
+    return rows
+end
+
+-- draws the pane's contents into its buffer. The window is left alone, so this
+-- is safe to call on every cursor movement inside the drawer
+paneRender = function()
+    if drawer == nil or drawer.pane == nil then
+        return
+    end
+
+    local rows =
+        paneRows(drawer.cash, vim.api.nvim_win_get_cursor(drawer.window)[1])
+
+    local text = {}
+    for _, row in ipairs(rows) do
+        table.insert(text, row.text)
+    end
+
+    local buffer = drawer.paneBuffer
+    vim.bo[buffer].modifiable = true
+    vim.api.nvim_buf_set_lines(buffer, 0, -1, false, text)
+    vim.bo[buffer].modifiable = false
+
+    vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
+    for line, row in ipairs(rows) do
+        for _, mark in ipairs(row.marks) do
+            vim.api.nvim_buf_set_extmark(
+                buffer,
+                namespace,
+                line - 1,
+                mark.from,
+                { end_col = mark.to, hl_group = mark.group }
+            )
+        end
+    end
+
+    vim.api.nvim_win_set_height(drawer.pane, #rows)
+end
+
+-- puts the drawer where ui.position asks for, and the pane beside it.
+--
+-- With the pane open the two are placed as one block, so that 'center' still
+-- centers what the user is actually looking at rather than centering the
+-- drawer and letting the pane hang off the side
+local placeWindows = function()
+    local cash = drawer.cash
+    local paneRoom = drawer.pane ~= nil and (PANE_WIDTH + 2) or 0
+    local where =
+        placement(cash.opts.ui.position, WIDTH + paneRoom, drawer.height)
+
+    vim.api.nvim_win_set_config(drawer.window, {
+        relative = 'editor',
+        row = where.row,
+        col = where.col,
+    })
+
+    if drawer.pane ~= nil then
+        vim.api.nvim_win_set_config(drawer.pane, {
+            relative = 'editor',
+            row = where.row,
+            col = where.col + WIDTH + 2,
+        })
+    end
+end
+
+ui.closePane = function()
+    if drawer == nil or drawer.pane == nil then
+        return
+    end
+
+    local pane = drawer.pane
+    drawer.pane = nil
+    drawer.paneBuffer = nil
+
+    if vim.api.nvim_win_is_valid(pane) then
+        vim.api.nvim_win_close(pane, true)
+    end
+    placeWindows()
+end
+
+ui.openPane = function()
+    if drawer == nil or drawer.pane ~= nil then
+        return
+    end
+
+    local cash = drawer.cash
+
+    -- the drawer and the pane side by side need this much room. Refusing is
+    -- better than opening something clipped in half
+    local needed = WIDTH + 2 + PANE_WIDTH + 2
+    if vim.o.columns < needed then
+        vim.notify(
+            'Cash.nvim: the detail pane needs a window at least '
+                .. needed
+                .. ' columns wide',
+            vim.log.levels.WARN
+        )
+        return
+    end
+
+    local buffer = vim.api.nvim_create_buf(false, true)
+    vim.bo[buffer].buftype = 'nofile'
+    vim.bo[buffer].bufhidden = 'wipe'
+    vim.bo[buffer].swapfile = false
+    -- the pane names patterns too, so it is kept out of the ledger for the
+    -- same reason the drawer is
+    vim.b[buffer].cashDrawer = true
+
+    drawer.paneBuffer = buffer
+    drawer.pane = vim.api.nvim_open_win(buffer, false, {
+        relative = 'editor',
+        width = PANE_WIDTH,
+        height = 1,
+        row = 0,
+        col = 0,
+        style = 'minimal',
+        border = cash.opts.ui.border,
+        title = '─ Details ',
+        title_pos = 'left',
+        focusable = false,
+        noautocmd = true,
+    })
+
+    vim.wo[drawer.pane].wrap = false
+    vim.wo[drawer.pane].winhighlight = table.concat({
+        'FloatTitle:FloatBorder',
+        'Search:CashDrawerNoSearch',
+        'CurSearch:CashDrawerNoSearch',
+        'IncSearch:CashDrawerNoSearch',
+    }, ',')
+
+    paneRender()
+    placeWindows()
+end
+
 ui.isOpen = function()
     return drawer ~= nil and vim.api.nvim_win_is_valid(drawer.window)
+end
+
+ui.isOpenPane = function()
+    return drawer ~= nil
+        and drawer.pane ~= nil
+        and vim.api.nvim_win_is_valid(drawer.pane)
+end
+
+-- what the pane is currently saying, as lines. For tests, and for anyone who
+-- wants the same facts without a window
+ui.paneContents = function()
+    if not ui.isOpenPane() then
+        return {}
+    end
+    return vim.api.nvim_buf_get_lines(drawer.paneBuffer, 0, -1, false)
 end
 
 ui.close = function()
@@ -380,8 +664,12 @@ ui.close = function()
     end
 
     local window = drawer.window
+    local pane = drawer.pane
     drawer = nil
 
+    if pane ~= nil and vim.api.nvim_win_is_valid(pane) then
+        vim.api.nvim_win_close(pane, true)
+    end
     if vim.api.nvim_win_is_valid(window) then
         vim.api.nvim_win_close(window, true)
     end
@@ -468,6 +756,7 @@ local setUpKeymaps = function(cash)
         end
         cash.toggleIncludeInSearch(index)
         decorate()
+        paneRender()
     end)
 
     -- swapping moves the pattern and the switch, but not the color: that
@@ -525,10 +814,11 @@ local setUpKeymaps = function(cash)
     map('i', '<CR>', '<Esc>')
 
     map('n', '?', function()
-        vim.notify(
-            'Cash.nvim: the detail pane is not built yet',
-            vim.log.levels.INFO
-        )
+        if drawer.pane == nil then
+            ui.openPane()
+        else
+            ui.closePane()
+        end
     end)
 end
 
@@ -791,6 +1081,7 @@ ui.open = function(cash)
     drawer = {
         buffer = buffer,
         window = window,
+        height = height,
         cash = cash,
         originWindow = originWindow,
         -- what <C-c> puts back
@@ -817,6 +1108,21 @@ ui.open = function(cash)
     -- cash register's contents and colors in here while the buffer behind
     -- stays dark, and the preview would have nothing to preview
     cash.showHighlighting()
+
+    if cash.opts.ui.detailPane then
+        ui.openPane()
+    end
+
+    -- the pane is about the cash register under the cursor, so it follows the
+    -- cursor. Cheap: it only redraws its own dozen lines
+    vim.api.nvim_create_autocmd('CursorMoved', {
+        buffer = buffer,
+        callback = function()
+            if drawer ~= nil then
+                paneRender()
+            end
+        end,
+    })
 
     -- the preview. Editing a pattern updates the highlights in the buffers
     -- behind the drawer as it is typed, which is the reason to edit here
@@ -845,6 +1151,7 @@ ui.open = function(cash)
 
             cash.updateHighlights()
             decorate()
+            paneRender()
         end,
     })
 

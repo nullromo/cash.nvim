@@ -121,7 +121,40 @@ Other possible actions from the drawer are listed in the table below.
 | <kbd>Tab</kbd>                | Select the highlighted cash register and stay open.                                                                                         |
 | <kbd>]</kbd> / <kbd>[</kbd>   | Swap the highlighted cash register with the one below / above. Contents move, but colors stay put, so this is one way to re-color a search. |
 | <kbd>q</kbd> / <kbd>Esc</kbd> | Apply and close the drawer.                                                                                                                 |
+| <kbd>?</kbd>                  | Show or hide the detail pane (shows more information about the highlighted cash register).                                                  |
 | <kbd>Ctrl-c</kbd>             | Close the drawer and undo everything changed since it was opened.                                                                           |
+
+#### The Detail Pane
+
+The detail pane can be opened from the drawer by pressing <kbd>?</kbd>. It
+provides more details about the highlighted cash register.
+
+```
+╭─ Details ────────────────────────────╮
+│  cash register 3                     │
+│                                      │
+│  contents          \<baz\>           │
+│  match pattern     \C\<baz\>         │
+│  include in search no                │
+│  selected          no                │
+│                                      │
+│  matching window IDs 1000  1001      │
+╰──────────────────────────────────────╯
+```
+
+- `contents` is the contents of the cash register.
+- `match pattern` is what Vim actually matches on, with the case flag inserted
+  on the left.
+- `include in search` answers whether <kbd>n</kbd> and <kbd>N</kbd> will visit
+  this cash register. It always reads `yes` for the selected register .
+- `matching window IDs` lists the windows in which that cash register's pattern
+  actually occurs.
+
+Set `ui.detailPane = true` to have the detail pane always appear with the
+drawer.
+
+_Note: The detail pane appears next to the drawer, so it needs a window at least
+102 columns wide in order to open._
 
 ### Command
 
@@ -230,6 +263,8 @@ behavior.
         position = 'center',
         -- the drawer's border, in any form nvim_open_win accepts
         border = 'rounded',
+        -- whether the detail pane is already open when the drawer appears
+        detailPane = false,
     },
 }
 ```
@@ -247,6 +282,7 @@ behavior.
 | `autoNoHighlight`                         | boolean                                        | `false`     | Clear every cash register's highlighting as soon as the cursor moves. The cursor movement made by the search itself does not count. Switchable with `:Cash autohide`.                                                                                                                                                                                                                                          |
 | `prompt.style`                            | `'grid'`, `'strip'` or `'none'`                | `'grid'`    | What the <kbd>?</kbd> chooser looks like. `'grid'` lays the registers out like a numpad and shows what each one holds; `'strip'` is one line of numbers; `'none'` turns the chooser popup off.                                                                                                                                                                                                                 |
 | `prompt.position` and `ui.position`       | string                                         | `'center'`  | Where the chooser and the cash drawer appear: `'top-left'`, `'top'`, `'top-right'`, `'left'`, `'center'`, `'right'`, `'bottom-left'`, `'bottom'` or `'bottom-right'`.                                                                                                                                                                                                                                          |
+| `ui.detailPane`                           | boolean                                        | `false`     | Whether the drawer's detail pane is already open when it appears. Needs a window at least 102 columns wide to function.                                                                                                                                                                                                                                                                                        |
 | `prompt.border` and `ui.border`           | string or table                                | `'rounded'` | Popup border settings for the chooser and drawer, in any form `nvim_open_win` accepts.                                                                                                                                                                                                                                                                                                                         |
 
 ## 💴 Other Tips

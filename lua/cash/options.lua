@@ -63,6 +63,9 @@ options.defaultOptions = {
         border = 'rounded',
         -- where on screen it appears
         position = 'center',
+        -- whether the detail pane is already open when the drawer appears. ?
+        -- toggles it either way
+        detailPane = false,
     },
 }
 
@@ -181,6 +184,8 @@ options.validateOptions = function(opts)
                         name2 .. '.position',
                         constants.positions
                     )
+                elseif key2 == 'detailPane' then
+                    util.checkType(value2, name2 .. '.detailPane', 'boolean')
                 else
                     error(
                         '"opts.ui.'
