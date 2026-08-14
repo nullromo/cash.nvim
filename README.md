@@ -34,6 +34,9 @@ Lazy.nvim config:
 }
 ```
 
+Everything below is also available inside Neovim as [vimdoc](./doc/cash.txt):
+`:help cash.nvim`.
+
 ## 💲 How to Use
 
 ### Search Normally
@@ -200,10 +203,10 @@ functions. Set `manageJumps = false` to make `includeInSearch` a no-op and leave
 the <kbd>n</kbd> and <kbd>N</kbd> keys alone entirely.
 
 If you map <kbd>n</kbd> yourself (`vim.keymap.set('n', 'n', 'nzz')` is a common
-one, and used to be suggested below), your mapping replaces Cash.nvim's and
-include-in-search will silently stop working. Map `require('cash').nextMatch` /
-`require('cash').previousMatch` if you want to maintain Cash.nvim's intended
-behavior.
+one), your mapping replaces Cash.nvim's and include-in-search will silently stop
+working. Map `require('cash').nextMatch` / `require('cash').previousMatch` if
+you want to maintain Cash.nvim's intended behavior. If centering is all you
+need, the `centerAfterSearch` option already does that for you.
 
 ## 💱 Customization
 
@@ -213,7 +216,8 @@ behavior.
 {
     -- clear all highlighting as soon as the cursor moves
     autoNoHighlight = false,
-    -- center the screen after each search
+    -- center the window after every search jump: /, *, #, n, N, and switching
+    -- to another cash register
     centerAfterSearch = true,
     -- color settings
     colors = {
@@ -273,7 +277,7 @@ behavior.
 
 | Option                                    | Data Type                                      | Default     | Description                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ----------------------------------------- | ---------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `centerAfterSearch`                       | boolean                                        | `true`      | Each time you perform a search, Cash.nvim will center the current window for you.<br />If you don't like this behavior, you can disable it by setting this option to `false`.                                                                                                                                                                                                                                  |
+| `centerAfterSearch`                       | boolean                                        | `true`      | Each time you arrive at a match, Cash.nvim will center the current window on it for you. This covers <kbd>/</kbd>, <kbd>\*</kbd>, <kbd>#</kbd>, switching cash registers, <kbd>n</kbd>, and <kbd>N</kbd>. A search that finds nothing leaves the window alone.<br />If you don't like this behavior, you can disable it by setting this option to `false`.                                                     |
 | `colors.defaultBG` and `colors.defaultFG` | string (`'#RRGGBB'`)                           | see above   | These will be the highlight background and foreground, respectively, for highlight colors that do not have a `bg` or `fg` color specified, respectively.                                                                                                                                                                                                                                                       |
 | `colors.highlightColors`                  | list of 9 `{ bg = string, fg = string }` items | see above   | This is a table of 9 values, each with a `bg` and `fg` field. These define the highlight colors for each of the 9 available cash registers. If a `bg` or `fg` value is not specified in one of these entries, then the `colors.defaultBG`/`colors.defaultFG` color will be used. Colors should be of the form `'#RRGGBB'`.                                                                                     |
 | `disableStarPoundJump`                    | boolean                                        | `true`      | By default, Vim will jump you to the next occurrence of a search term if you initiate the search using <kbd>\*</kbd> or <kbd>#</kbd>. Cash.nvim disables this by default. You can preserve Vim's default behavior by setting this option to `false`.                                                                                                                                                           |
@@ -306,28 +310,28 @@ By default, the <kbd>+</kbd> key in Vim just moves the cursor down 1 line. It is
 very similar to <kbd>j</kbd>, so it's not that useful. For this reason,
 <kbd>+</kbd> is a good candidate for remapping.
 
-### Center the screen after jumping to a match
+### Do something after each jump
 
-This mapping centers the screen after each jump with <kbd>n</kbd>/<kbd>N</kbd>.
+Centering is built in—see the `centerAfterSearch` option. Anything else you want
+to happen after each jump with <kbd>n</kbd>/<kbd>N</kbd> should wrap the API
+functions, so that the search set is still taken into account. For example, here
+is a mapping that puts the match at the top of the window instead of the middle.
 
 ```lua
 local cash = require('cash')
 vim.keymap.set('n', 'n', function()
     cash.nextMatch()
-    vim.cmd('normal! zz')
+    vim.cmd('normal! zt')
 end)
 vim.keymap.set('n', 'N', function()
     cash.previousMatch()
-    vim.cmd('normal! zz')
+    vim.cmd('normal! zt')
 end)
 ```
 
 Do not use the usual `vim.keymap.set('n', 'n', 'nzz')` for this. That mapping
 calls Vim's built-in <kbd>n</kbd>, which knows nothing about the search set, so
 <kbd>n</kbd> would only ever be able to visit the working cash register.
-
-This can provide a more consistent experience when paired with Cash.nvim's
-`centerAfterSearch` option.
 
 ## 🏦 License, Contributing, etc.
 

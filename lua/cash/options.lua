@@ -8,7 +8,8 @@ options.defaultOptions = {
     -- again. The search that turned it on moves the cursor itself, so that
     -- first move does not count
     autoNoHighlight = false,
-    -- center the screen after each search
+    -- center the window on the match after every search: / and ?, * and #, a
+    -- switch to another cash register, and n and N
     centerAfterSearch = true,
     -- color settings
     colors = {

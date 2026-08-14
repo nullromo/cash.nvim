@@ -62,6 +62,23 @@ CashModule.initializeData = function()
     CashModule.setSearch('')
 end
 
+-- centers the window on the cursor, as zz does, when the user has asked for
+-- that. Every path that performs a search calls this, so that an ordinary /,
+-- a * or #, a switch to another cash register and n and N all leave the match
+-- in the same place on the screen.
+--
+-- A search that found nothing does not call this at all: it has not moved the
+-- cursor, and vim does not scroll the window for a failed search either. * and
+-- # are the deliberate exception, and center even when disableStarPoundJump
+-- has kept the cursor still, since the match is the word under it already
+CashModule.centerWindow = function()
+    if not CashModule.opts.centerAfterSearch then
+        return
+    end
+
+    vim.cmd('normal! zz')
+end
+
 -- sets the working cash register
 CashModule.setCashRegister = function(newIndex)
     -- there are only 9 cash registers
@@ -92,7 +109,9 @@ CashModule.setCashRegister = function(newIndex)
         if util.isUsablePattern(newPattern) then
             -- search for the new pattern (w = wrap around end of document)
             CashModule.expectSearchMove()
-            vim.fn.search(newPattern, 'w')
+            if vim.fn.search(newPattern, 'w') ~= 0 then
+                CashModule.centerWindow()
+            end
         end
     end
 end
@@ -179,9 +198,10 @@ CashModule.clearCashRegister = function(index)
     CashModule.updateHighlights()
 end
 
--- what n and N do. Exported so that anyone who wants their own n -- to center
--- the screen after it, say -- can wrap these rather than replace them, which
--- would take the search set out of the picture without saying so
+-- what n and N do. Exported so that anyone who wants their own n -- one that
+-- puts the match at the top of the window after it, say -- can wrap these
+-- rather than replace them, which would take the search set out of the
+-- picture without saying so
 CashModule.nextMatch = function()
     jump.go(CashModule, true)
 end

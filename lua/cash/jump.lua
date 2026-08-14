@@ -183,7 +183,9 @@ jump.go = function(cash, forward)
             pcall(vim.cmd, 'normal! ' .. count .. (forward and 'n' or 'N'))
         if not ok then
             echoVimError(err)
+            return
         end
+        cash.centerWindow()
         return
     end
 
@@ -200,6 +202,10 @@ jump.go = function(cash, forward)
         moveTo(position)
         wrapped = wrapped or didWrap
     end
+
+    -- centered before anything is said, because the scroll redraws the screen
+    -- and would wipe the message off it
+    cash.centerWindow()
 
     -- announced once, after the last hop, the way vim reports a counted jump
     if wrapped then

@@ -83,6 +83,19 @@ keymaps.setUpKeymaps = function(cash)
 
             -- the search is about to move the cursor itself
             cash.expectSearchMove()
+
+            -- the search has not run yet: this mapping only hands back the
+            -- <CR> that sets it going. Centering therefore has to wait for
+            -- the cursor to arrive, which is the next turn of the event loop.
+            -- A search that finds nothing leaves the cursor where it was, and
+            -- vim does not scroll the window for one, so neither does this
+            local before = vim.api.nvim_win_get_cursor(0)
+            vim.schedule(function()
+                local after = vim.api.nvim_win_get_cursor(0)
+                if not vim.deep_equal(after, before) then
+                    cash.centerWindow()
+                end
+            end)
         end
 
         -- execute the command as normal
@@ -101,13 +114,13 @@ keymaps.setUpKeymaps = function(cash)
 
             -- if a count was supplied, execute */# normally and exit
             if vim.v.count > 0 then
-                vim.cmd('normal! ' .. vim.v.count .. keyPressed .. '<CR>')
+                vim.cmd('normal! ' .. vim.v.count .. keyPressed)
             else
                 -- save current window view
                 local windowView = vim.fn.winsaveview()
 
                 -- execute */# normally
-                vim.cmd('silent keepjumps normal! ' .. keyPressed .. '<CR>')
+                vim.cmd('silent keepjumps normal! ' .. keyPressed)
 
                 -- restore the window view
                 if windowView ~= nil and cash.opts.disableStarPoundJump then
@@ -116,9 +129,7 @@ keymaps.setUpKeymaps = function(cash)
             end
 
             -- center the screen
-            if cash.opts.centerAfterSearch then
-                vim.cmd('normal! zz<CR>')
-            end
+            cash.centerWindow()
         end)
     end
 
