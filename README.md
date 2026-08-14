@@ -183,8 +183,10 @@ overridden in the search pattern as normal using `\c` or `\C` (see `:help /\c`).
 
 ### Clear Cash Registers
 
-To clear the contents of the working cash register, use `:clc`. This will also
-set Vim's search to an empty string.
+To clear the contents of the working cash register, use `:Cash clear` (or the
+`require('cash').clearCashRegister()` function). This will also set Vim's
+search to an empty string. Pass a number, as in `:Cash clear 3`, to empty a
+different cash register instead.
 
 To clear all cash registers and reset the plugin to its initial state, use
 `:Cash reset` (or the `require('cash').resetCashRegisters()` function). This

@@ -137,30 +137,6 @@ keymaps.setUpKeymaps = function(cash)
     addKeyTrigger('n', '*', starPoundAction(true), true)
     addKeyTrigger('n', '#', starPoundAction(false), true)
 
-    -- Use clc in command mode to clear the search
-    vim.keymap.set('c', 'clc<CR>', function()
-        -- check which command line the command was entered in
-        local commandType = vim.fn.getcmdtype()
-
-        -- if it was entered in ex mode
-        if commandType == ':' then
-            -- clear the current search
-            cash.setSearch('')
-
-            -- exit ex mode normally
-            return '<CR>'
-        end
-
-        -- if it was entered in a search command
-        if commandType == '/' or commandType == '?' then
-            -- search for the literal string
-            cash.setSearch('clc')
-        end
-
-        -- exit the search normally
-        return 'clc<CR>'
-    end, { expr = true })
-
     -- n and N move between the matches of every cash register in the search
     -- set, not just the working one. Only normal mode is taken: in operator
     -- pending and visual mode, dn and vn keep reading @/, which is the working
