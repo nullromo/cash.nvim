@@ -52,6 +52,67 @@ local pad = function(text, width)
     return text .. string.rep(' ', math.max(0, width - #text))
 end
 
+-- where a popup sits, as a fraction of the space left over once it has been
+-- placed. 0 is flush against the top or left, 1 against the bottom or right
+local PLACEMENT = {
+    ['top-left'] = { 0, 0 },
+    ['top'] = { 0, 0.5 },
+    ['top-right'] = { 0, 1 },
+    ['left'] = { 0.5, 0 },
+    ['center'] = { 0.5, 0.5 },
+    ['right'] = { 0.5, 1 },
+    ['bottom-left'] = { 1, 0 },
+    ['bottom'] = { 1, 0.5 },
+    ['bottom-right'] = { 1, 1 },
+}
+
+-- the row and column for a popup of this size in this position. The border
+-- adds a row and a column on each side, and the command line and status line
+-- are not free to be covered, so neither counts as space to place into
+local placement = function(position, width, height)
+    local fraction = PLACEMENT[position] or PLACEMENT['center']
+
+    local rowsFree = vim.o.lines - vim.o.cmdheight - 1 - (height + 2)
+    local columnsFree = vim.o.columns - (width + 2)
+
+    return {
+        row = math.max(0, math.floor(rowsFree * fraction[1])),
+        col = math.max(0, math.floor(columnsFree * fraction[2])),
+    }
+end
+
+-- a line under construction, kept as text plus the highlights that go over it.
+-- Built together because the highlights are byte ranges into the text, and a
+-- pattern can hold anything the user typed, multibyte included
+local newRow = function()
+    return { text = '', marks = {} }
+end
+
+local addChunk = function(row, text, group)
+    if group ~= nil then
+        table.insert(row.marks, {
+            from = #row.text,
+            to = #row.text + #text,
+            group = group,
+        })
+    end
+    row.text = row.text .. text
+end
+
+local padRowTo = function(row, width)
+    local shortfall = width - vim.fn.strdisplaywidth(row.text)
+    if shortfall > 0 then
+        addChunk(row, string.rep(' ', shortfall))
+    end
+end
+
+local truncate = function(text, width)
+    if vim.fn.strdisplaywidth(text) <= width then
+        return text
+    end
+    return vim.fn.strcharpart(text, 0, width - 1) .. '~'
+end
+
 -- how many matches a cash register has in the buffer the user came from.
 --
 -- Bounded on both sides: maxcount stops a pattern matching nearly every
@@ -471,6 +532,189 @@ local setUpKeymaps = function(cash)
     end)
 end
 
+-- ------------------------------------------------------------------ chooser
+--
+-- The popup ? brings up. Its whole job is to answer "which number is the green
+-- one" on screen instead of from memory, which is what makes it a different
+-- tool from the drawer: it appears, you press a digit, it is gone.
+--
+-- An empty cash register still shows its number, in its own color as text
+-- rather than as a swatch. It is worth knowing which colors are free.
+
+-- a grid cell is the marker, the number, a space and the pattern
+local CHOOSER_COLUMN = 12
+local CHOOSER_PATTERN = CHOOSER_COLUMN - 5
+
+local chooserCell = function(row, cash, index, patternWidth)
+    local register = cash.state.cashRegisters[index]
+    local filled = register.pattern ~= ''
+
+    -- the grid marks the selected cash register the same way the drawer does,
+    -- so that the two read alike. The strip has no room for it and is not
+    -- trying to answer that question anyway
+    if patternWidth ~= nil then
+        addChunk(
+            row,
+            index == cash.state.currentIndex and '▸' or ' ',
+            'CashRegisterFg' .. index
+        )
+    end
+
+    addChunk(
+        row,
+        ' ' .. index .. ' ',
+        filled and ('CashRegister' .. index) or ('CashRegisterFg' .. index)
+    )
+
+    if patternWidth == nil then
+        return
+    end
+
+    addChunk(row, ' ')
+    if filled then
+        addChunk(
+            row,
+            truncate(register.pattern, patternWidth),
+            'CashRegister' .. index
+        )
+    else
+        addChunk(row, '·', 'Comment')
+    end
+end
+
+-- 'grid' lays the nine out the way a numpad does, which is not a coincidence
+-- worth wasting, and shows what each one holds. 'strip' is one line of numbers
+-- for when that is the only question
+local chooserRows = function(cash, style)
+    local rows = {}
+
+    if style == 'strip' then
+        local row = newRow()
+        addChunk(row, '  ')
+        for index = 1, 9 do
+            chooserCell(row, cash, index)
+            if index < 9 then
+                addChunk(row, ' ')
+            end
+        end
+        addChunk(row, '  ')
+        table.insert(rows, row)
+        return rows
+    end
+
+    for line = 0, 2 do
+        local row = newRow()
+        addChunk(row, '  ')
+        for column = 0, 2 do
+            chooserCell(row, cash, line * 3 + column + 1, CHOOSER_PATTERN)
+            padRowTo(row, 2 + (column + 1) * CHOOSER_COLUMN)
+        end
+        -- a pattern that fills its column exactly would otherwise sit against
+        -- the border with nothing between them
+        addChunk(row, '  ')
+        table.insert(rows, row)
+    end
+    return rows
+end
+
+-- shows the chooser and waits for one keypress. Returns the cash register the
+-- user picked, or nil if they pressed anything else
+-- puts the chooser on screen and hands back its window, without waiting for
+-- anything. Kept separate from chooseRegister so that what gets drawn can be
+-- looked at without a keypress blocking the loop, which is also how it is
+-- tested
+ui.openChooser = function(cash, style)
+    local rows = chooserRows(cash, style or cash.opts.prompt.style)
+
+    local width = 0
+    local text = {}
+    for _, row in ipairs(rows) do
+        width = math.max(width, vim.fn.strdisplaywidth(row.text))
+        table.insert(text, row.text)
+    end
+
+    local buffer = vim.api.nvim_create_buf(false, true)
+    vim.bo[buffer].bufhidden = 'wipe'
+    -- the chooser holds patterns as literal text too, so it is kept out of the
+    -- ledger for the same reason the drawer is
+    vim.b[buffer].cashDrawer = true
+    vim.api.nvim_buf_set_lines(buffer, 0, -1, false, text)
+
+    for line, row in ipairs(rows) do
+        for _, mark in ipairs(row.marks) do
+            vim.api.nvim_buf_set_extmark(
+                buffer,
+                namespace,
+                line - 1,
+                mark.from,
+                { end_col = mark.to, hl_group = mark.group }
+            )
+        end
+    end
+
+    local where = placement(cash.opts.prompt.position, width, #rows)
+    local window = vim.api.nvim_open_win(buffer, false, {
+        relative = 'editor',
+        width = width,
+        height = #rows,
+        row = where.row,
+        col = where.col,
+        style = 'minimal',
+        border = cash.opts.ui.border,
+        -- the leading dash continues the border rather than sitting apart from
+        -- it, which needs the title drawn in the border's own colors
+        title = '─ Choose a cash register ',
+        title_pos = 'left',
+        focusable = false,
+        noautocmd = true,
+    })
+
+    -- the chooser lists the patterns, so vim's own hlsearch would match them
+    -- in here as well. Same reasoning as the drawer
+    vim.api.nvim_set_hl(0, 'CashDrawerNoSearch', {})
+    vim.wo[window].winhighlight = table.concat({
+        'FloatTitle:FloatBorder',
+        'Search:CashDrawerNoSearch',
+        'CurSearch:CashDrawerNoSearch',
+        'IncSearch:CashDrawerNoSearch',
+    }, ',')
+
+    return window
+end
+
+-- shows the chooser and waits for one keypress. Returns the cash register the
+-- user picked, or nil if they pressed anything else
+ui.chooseRegister = function(cash)
+    local window = nil
+
+    if cash.opts.prompt.style == 'none' then
+        vim.notify('Enter a digit to choose a cash register')
+    else
+        window = ui.openChooser(cash)
+        -- drawn before the wait, or it would only appear once the key had
+        -- already been pressed
+        vim.cmd('redraw')
+    end
+
+    local pressed, character = pcall(vim.fn.getchar)
+
+    if window ~= nil and vim.api.nvim_win_is_valid(window) then
+        vim.api.nvim_win_close(window, true)
+    end
+    -- clear the command line, whichever way the answer was asked for
+    vim.api.nvim_echo({ { '', '' } }, false, {})
+
+    if not pressed then
+        return nil
+    end
+
+    local index = tonumber(vim.fn.nr2char(character))
+    if not util.isCashRegisterIndex(index) then
+        return nil
+    end
+    return index
+end
+
 ui.open = function(cash)
     if ui.isOpen() then
         vim.api.nvim_set_current_win(drawer.window)
@@ -496,12 +740,14 @@ ui.open = function(cash)
     -- the legend, the two rules, the search set line and the key hints
     local height = 1 + 9 + #LEGEND + 3 + #FOOTER
 
+    local where = placement(cash.opts.ui.position, WIDTH, height)
+
     local window = vim.api.nvim_open_win(buffer, true, {
         relative = 'editor',
         width = WIDTH,
         height = height,
-        row = math.max(0, math.floor((vim.o.lines - height) / 2) - 1),
-        col = math.max(0, math.floor((vim.o.columns - WIDTH) / 2)),
+        row = where.row,
+        col = where.col,
         style = 'minimal',
         border = cash.opts.ui.border,
         -- the leading dash continues the border rather than sitting apart

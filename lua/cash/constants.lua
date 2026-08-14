@@ -15,6 +15,24 @@ constants.colors = {
     waveBlue2 = '#2D4F67',
 }
 
+-- the nine places a popup can sit on screen. Named rather than numbered: a
+-- numpad digit would read well for the grid and badly at a call site, where 1
+-- meaning bottom-left is a trap for anyone not picturing a numpad
+constants.positions = {
+    'top-left',
+    'top',
+    'top-right',
+    'left',
+    'center',
+    'right',
+    'bottom-left',
+    'bottom',
+    'bottom-right',
+}
+
+-- what the ? chooser can look like
+constants.promptStyles = { 'grid', 'strip', 'none' }
+
 constants.invalidOptionMessage = 'is not a valid option for Cash.nvim'
 
 return constants

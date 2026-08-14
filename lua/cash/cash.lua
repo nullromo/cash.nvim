@@ -91,6 +91,7 @@ CashModule.setCashRegister = function(newIndex)
         -- only jump if vim can actually use the pattern
         if util.isUsablePattern(newPattern) then
             -- search for the new pattern (w = wrap around end of document)
+            CashModule.expectSearchMove()
             vim.fn.search(newPattern, 'w')
         end
     end
@@ -119,6 +120,20 @@ CashModule.toggleIncludeInSearch = function(index)
         index,
         not CashModule.state.cashRegisters[index].includeInSearch
     )
+end
+
+-- true when the cursor is about to be moved by a search rather than by the
+-- user. See CashModule.expectSearchMove
+local searchIsMovingTheCursor = false
+
+-- says that the next cursor movement belongs to a search.
+--
+-- autoNoHighlight clears the highlighting as soon as the cursor moves, and
+-- every search moves the cursor itself. Without this the highlighting would be
+-- gone in the same breath as it arrived, which is not what anyone means by
+-- "clear it when I move"
+CashModule.expectSearchMove = function()
+    searchIsMovingTheCursor = true
 end
 
 -- turns search highlighting back on, undoing a :nohlsearch, and brings every
@@ -217,6 +232,34 @@ CashModule.setUpAutocmds = function()
     -- whenever vim is about to wait for input, which makes this a number
     -- comparison per keystroke; the update itself only runs when the answer
     -- has actually changed
+    -- issue #16: for people who want the highlighting to stop following them
+    -- around. Off by default, and switchable at any time with :Cash autohide.
+    --
+    -- v:hlsearch is set from a schedule rather than from the callback, because
+    -- it is saved and restored around autocmd execution: assigned here
+    -- directly it would hold for the rest of this callback and then be thrown
+    -- away, and the highlighting would flicker off and straight back on
+    vim.api.nvim_create_autocmd('CursorMoved', {
+        group = group,
+        callback = function()
+            if not CashModule.opts.autoNoHighlight or vim.v.hlsearch == 0 then
+                return
+            end
+
+            if searchIsMovingTheCursor then
+                searchIsMovingTheCursor = false
+                return
+            end
+
+            vim.schedule(function()
+                pcall(function()
+                    vim.v.hlsearch = 0
+                end)
+                CashModule.updateHighlights()
+            end)
+        end,
+    })
+
     local lastHighlightState = vim.v.hlsearch
     vim.api.nvim_create_autocmd('SafeState', {
         group = group,

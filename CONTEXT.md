@@ -114,6 +114,15 @@ was acted on. There is no separate "hidden" state — `v:hlsearch` **is** the
 state, which is why turning the highlights back on is not a thing anything has
 to remember to do: searching does it.
 
+One trap worth knowing: **`v:hlsearch` is saved and restored around autocmd
+execution**. Assigning it from inside a callback holds for the rest of that
+callback and is then thrown away — long enough to add matches, which then sit
+on screen looking correct, until the next update finds it back at 0 and takes
+them all away. Anything turning highlighting on goes through
+`cash.showHighlighting`, which assigns it once for the caller's benefit and
+again from a `vim.schedule`, where it sticks. `autoNoHighlight` turns it off
+the same way, from a schedule.
+
 It works out what should be on screen, compares it against the ledger, and
 fixes the difference. It is idempotent: calling it twice does nothing the
 second time, so callers never have to know whether something has already been
@@ -163,6 +172,25 @@ Things the drawer has to do that are easy to get wrong:
   <kbd>u</kbd> should undo what the user typed and nothing else. Without it,
   <kbd>u</kbd> can restore the empty buffer the drawer started as, which the
   row-count guard then reads back as nine empty cash registers.
+
+## The chooser
+
+The popup <kbd>?</kbd> brings up, in `ui.openChooser`. A different tool from
+the drawer, and deliberately so: it appears, you press a digit, it is gone.
+
+Its whole job is to answer _which number is the green one_ on screen rather
+than from memory. That is why an empty cash register still shows its number,
+in its own color — knowing which colors are free is part of the answer.
+
+`ui.openChooser` draws it and hands back the window; `ui.chooseRegister` is
+what waits for the keypress. They are separate because `getchar()` blocks the
+event loop, so anything that wants to look at what was drawn — a test, a
+screenshot — cannot also be the thing that dismisses it.
+
+Both the chooser and the drawer are placed by `placement`, which takes one of
+the nine names in `constants.positions` and turns it into a row and column. The
+command line and the status line are not free to be covered, so neither counts
+as space to place into.
 
 ## Highlight group
 

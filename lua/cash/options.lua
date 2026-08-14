@@ -4,6 +4,10 @@ local util = require('cash.util')
 local options = {}
 
 options.defaultOptions = {
+    -- clear every cash register's highlighting as soon as the cursor moves
+    -- again. The search that turned it on moves the cursor itself, so that
+    -- first move does not count
+    autoNoHighlight = false,
     -- center the screen after each search
     centerAfterSearch = true,
     -- color settings
@@ -39,6 +43,15 @@ options.defaultOptions = {
     -- exactly as they always did. Set this to false to leave them alone
     -- entirely, at the cost of include-in-search doing nothing
     manageJumps = true,
+    -- the popup that ? brings up to choose a cash register
+    prompt = {
+        -- 'grid' lays the nine out like a numpad and shows what each one
+        -- holds, 'strip' is one line of numbers in their colors, and 'none'
+        -- keeps the plain message and no popup at all
+        style = 'grid',
+        -- where on screen it appears
+        position = 'center',
+    },
     -- leave vim's hlsearch setting alone. This plugin overrides hlsearch by
     -- default
     respectHLSearch = false,
@@ -46,6 +59,8 @@ options.defaultOptions = {
     ui = {
         -- the drawer's border, in any form nvim_open_win accepts
         border = 'rounded',
+        -- where on screen it appears
+        position = 'center',
     },
 }
 
@@ -71,7 +86,9 @@ end
 options.validateOptions = function(opts)
     for key1, value1 in pairs(opts) do
         local name1 = 'opts'
-        if key1 == 'centerAfterSearch' then
+        if key1 == 'autoNoHighlight' then
+            util.checkType(value1, name1 .. '.autoNoHighlight', 'boolean')
+        elseif key1 == 'centerAfterSearch' then
             util.checkType(value1, name1 .. '.centerAfterSearch', 'boolean')
         elseif key1 == 'colors' then
             util.checkType(value1, name1 .. '.colors', 'table')
@@ -132,6 +149,20 @@ options.validateOptions = function(opts)
             util.checkType(value1, name1 .. '.disableStarPoundJump', 'boolean')
         elseif key1 == 'manageJumps' then
             util.checkType(value1, name1 .. '.manageJumps', 'boolean')
+        elseif key1 == 'prompt' then
+            util.checkType(value1, name1 .. '.prompt', 'table')
+            for key2, value2 in pairs(value1) do
+                local name2 = name1 .. '.prompt.' .. key2
+                if key2 == 'style' then
+                    util.checkOneOf(value2, name2, constants.promptStyles)
+                elseif key2 == 'position' then
+                    util.checkOneOf(value2, name2, constants.positions)
+                else
+                    error(
+                        '"' .. name2 .. '" ' .. constants.invalidOptionMessage
+                    )
+                end
+            end
         elseif key1 == 'respectHLSearch' then
             util.checkType(value1, name1 .. '.respectHLSearch', 'boolean')
         elseif key1 == 'ui' then
@@ -149,6 +180,12 @@ options.validateOptions = function(opts)
                                 .. 'Cash.nvim'
                         )
                     end
+                elseif key2 == 'position' then
+                    util.checkOneOf(
+                        value2,
+                        name2 .. '.position',
+                        constants.positions
+                    )
                 else
                     error(
                         '"opts.ui.'

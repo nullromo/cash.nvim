@@ -56,23 +56,20 @@ keymaps.setUpKeymaps = function(cash)
     -- set the cash register switching keymap. Use ?<number> to swap to the
     -- <number>-th search pattern
     vim.keymap.set('n', '?', function()
-        -- get a character from the user
-        vim.notify('Enter a digit to choose a cash register')
-        local userNumber = tonumber(vim.fn.nr2char(vim.fn.getchar()))
+        -- the chooser shows which number is which color, so that the digit to
+        -- press is on screen rather than in the user's memory. prompt.style =
+        -- 'none' asks with a message instead, as this always used to
+        local index = ui.chooseRegister(cash)
 
-        -- clear the command line
-        vim.api.nvim_echo({ { '', '' } }, false, {})
-
-        -- if the user didn't enter a number, do nothing
-        if userNumber == nil then
+        if index == nil then
             vim.notify(
-                'Error: you must enter a digit to select a cash register'
+                'Cash.nvim: you must enter a digit from 1 to 9 to choose a '
+                    .. 'cash register'
             )
             return
         end
 
-        -- set the active cash register to the user's desired number
-        cash.setCashRegister(userNumber)
+        cash.setCashRegister(index)
     end)
 
     -- run custom functions after searching. Whenever the user performs a normal
@@ -83,6 +80,9 @@ keymaps.setUpKeymaps = function(cash)
         if commandType == '/' or commandType == '?' then
             -- update Cash.nvim for the new search
             cash.setSearch(vim.fn.getcmdline())
+
+            -- the search is about to move the cursor itself
+            cash.expectSearchMove()
         end
 
         -- execute the command as normal
@@ -97,6 +97,7 @@ keymaps.setUpKeymaps = function(cash)
 
             -- set the search pattern as */# normally would
             cash.setSearch(vim.fn.expand('<cword>'))
+            cash.expectSearchMove()
 
             -- if a count was supplied, execute */# normally and exit
             if vim.v.count > 0 then
@@ -204,7 +205,34 @@ keymaps.setUpKeymaps = function(cash)
         show = function()
             cash.showHighlighting()
         end,
+        -- issue #16's real-time switch
+        autohide = function(argument)
+            if argument == 'on' then
+                cash.opts.autoNoHighlight = true
+            elseif argument == 'off' then
+                cash.opts.autoNoHighlight = false
+            elseif argument == 'toggle' or argument == nil then
+                cash.opts.autoNoHighlight = not cash.opts.autoNoHighlight
+            else
+                vim.api.nvim_echo({
+                    {
+                        'Cash.nvim: :Cash autohide takes on, off or toggle',
+                        'ErrorMsg',
+                    },
+                }, true, {})
+                return
+            end
+
+            vim.notify(
+                'Cash.nvim: highlighting '
+                    .. (cash.opts.autoNoHighlight and 'clears' or 'stays')
+                    .. ' when the cursor moves'
+            )
+        end,
     }
+
+    -- autohide is the one verb whose argument is not a cash register
+    local autohideArguments = { 'on', 'off', 'toggle' }
 
     local takesIndex = {
         use = true,
@@ -253,6 +281,8 @@ keymaps.setUpKeymaps = function(cash)
                     for index = 1, 9 do
                         table.insert(candidates, tostring(index))
                     end
+                elseif words[2] == 'autohide' then
+                    candidates = vim.deepcopy(autohideArguments)
                 end
             else
                 for verb in pairs(verbs) do

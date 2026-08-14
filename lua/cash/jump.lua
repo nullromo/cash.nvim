@@ -167,6 +167,11 @@ end
 jump.go = function(cash, forward)
     local count = vim.v.count1
     local state = cash.state
+
+    -- the movement about to happen belongs to a search, so autoNoHighlight
+    -- should not read it as the user wandering off
+    cash.expectSearchMove()
+
     local searchable =
         jump.searchablePatterns(state.cashRegisters, state.currentIndex)
 

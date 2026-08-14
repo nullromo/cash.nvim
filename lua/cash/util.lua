@@ -10,6 +10,24 @@ util.checkType = function(value, valueName, typeName)
     end
 end
 
+-- for an option that only has a handful of legal answers. The complaint names
+-- all of them, since the whole point is that the user cannot guess
+util.checkOneOf = function(value, valueName, allowed)
+    for _, candidate in ipairs(allowed) do
+        if value == candidate then
+            return
+        end
+    end
+
+    error(
+        '"'
+            .. valueName
+            .. '" must be one of '
+            .. table.concat(allowed, ', ')
+            .. ' for Cash.nvim'
+    )
+end
+
 -- true if vim will accept the given string as a search pattern.
 --
 -- A cash register holds whatever the user typed, which includes patterns vim
