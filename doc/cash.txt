@@ -1,0 +1,803 @@
+*cash.txt*      Extra search registers, each with its own highlight color
+
+
+             ████    ██    ████  █    █    █    █ █    █ █ █    █
+            █    █  █  █  █      █    █    ██   █ █    █ █ ██  ██
+            █      █    █  ████  ██████    █ █  █ █    █ █ █ ██ █
+            █      ██████      █ █    █    █  █ █ █    █ █ █    █
+            █    █ █    █ █    █ █    █    █   ██  █  █  █ █    █
+             ████  █    █  ████  █    █ ██ █    █   ██   █ █    █
+
+                CASH: Choose from Available Search Highlights
+
+==============================================================================
+CONTENTS                                    *cash-contents* *cash.nvim* *cash*
+
+  1. Introduction ........................................ |cash-introduction|
+  2. Quick start .......................................... |cash-quick-start|
+  3. Requirements ........................................ |cash-requirements|
+  4. Installation ........................................ |cash-installation|
+  5. Concepts ................................................ |cash-concepts|
+  6. Searching .............................................. |cash-searching|
+  7. Include in search .............................. |cash-include-in-search|
+  8. The chooser .............................................. |cash-chooser|
+  9. The cash drawer ........................................... |cash-drawer|
+  10. Commands ............................................... |cash-commands|
+  11. Default mappings ....................................... |cash-mappings|
+  12. Configuration ..................................... |cash-configuration|
+  13. Lua API ..................................................... |cash-api|
+  14. Highlight groups ............................... |cash-highlight-groups|
+  15. Compatibility ..................................... |cash-compatibility|
+  16. Tips ....................................................... |cash-tips|
+  17. About ..................................................... |cash-about|
+
+
+==============================================================================
+1. INTRODUCTION                                            *cash-introduction*
+
+Vim keeps only one search. The pattern you last typed lives in the |quote_/|
+register, and searching again overwrites it. The highlighting of searches is
+tied to this register.
+
+Cash.nvim gives you nine search registers, called "cash registers" (haha).
+Each one holds its own search pattern and is drawn in its own color, and all
+nine can be lit up at the same time. One of the nine is the "working" or
+"active" cash register: the one a search writes into. This is also the one |n|
+and |N| move through. |n| and |N| can also be configured to move through the
+union of multiple cash registers. Press `?` followed by a digit to work in a
+different cash register.
+
+Ordinary searching is unchanged. |/|, |star|, |#|, |n|, |N|, 'hlsearch' and
+|:nohlsearch| all do what they always did—there are simply eight more searches
+on the screen than there used to be.
+
+
+==============================================================================
+2. QUICK START                                              *cash-quick-start*
+
+Call |cash.setup()| once, then:
+
+  - Search for something with |/|. It lights up in cash register 1's color.
+  - Press `?` to make the chooser appear. Press `2`, and `2` becomes the
+    working cash register. See |cash-chooser|.
+  - Search for something else. The first search is still lit in its own color.
+  - |n| and |N| move between the matches of the working cash register only,
+    unless you ask for more. See |cash-include-in-search|.
+  - `:Cash` opens the cash drawer (cha-ching), which shows all nine registers
+    at once and lets you view/edit them. See |cash-drawer|.
+  - |:nohlsearch| clears all nine at once. Searching again or opening the
+    drawer brings them back.
+
+
+==============================================================================
+3. REQUIREMENTS                                            *cash-requirements*
+
+  - Neovim 0.10 or newer. The cash drawer is drawn with inline virtual text,
+    which older versions cannot render.
+  - 'termguicolors' switched on. Cash register colors are given as `#RRGGBB`,
+    which a terminal without true color support cannot show.
+
+There are no plugin dependencies.
+
+
+==============================================================================
+4. INSTALLATION                                            *cash-installation*
+
+Cash.nvim does nothing until |cash.setup()| is called: there is no `plugin/`
+file, so no mappings, commands or highlight groups exist before that.
+
+With lazy.nvim: >lua
+
+    {
+        'nullromo/cash.nvim',
+        opts = {}, -- specify options here
+        config = function(_, opts)
+            local cash = require('cash')
+            cash.setup(opts)
+        end,
+    }
+<
+With any other plugin manager, or with none, a call to
+`require('cash').setup({})` somewhere in your configuration is all that is
+needed. See |cash-configuration| for what can go in the table.
+
+
+==============================================================================
+5. CONCEPTS                                                    *cash-concepts*
+
+These are the words the rest of this document uses. They are the same words
+the source code uses.
+
+CASH REGISTER                                             *cash-cash-register*
+
+One of the nine slots that hold a search pattern. They are numbered 1 to 9,
+and there are never more or fewer. A cash register holds two things: the
+search pattern, and whether |n| and |N| should visit it (see
+|cash-include-in-search|).
+
+A cash register's color is not part of the register contents. It belongs to
+the slot, and is set by `colors.highlightColors[n]`. Moving a pattern from one
+register to another is therefore how a search gets re-colored. See
+|cash-drawer| for the `]` and `[` keys, which do exactly that.
+
+WORKING CASH REGISTER                                  *cash-working-register*
+
+The cash register you are currently searching in. Searching overwrites its
+pattern, and |n| and |N| move between its matches. It starts out as cash
+register 1.
+
+The working cash register is drawn using Vim's own |hl-Search| highlight,
+re-colored to that register's color. This is deliberate: it keeps 'hlsearch',
+|:nohlsearch| and |quote_/| behaving exactly as they normally do for the
+register you are actually working in.
+
+SEARCH SET                                                   *cash-search-set*
+
+The cash registers whose matches |n| and |N| move between:
+
+    the working cash register, plus every cash register that has
+    include-in-search switched on.
+
+The working cash register is in the search set no matter what its own
+`includeInSearch` value says. 
+
+The search set decides where |n| goes and nothing else. It has no effect on
+what is highlighted: an included cash register and an excluded one look
+exactly alike in the buffer. The cash drawer shows the current search set.
+
+SEARCH PATTERN AND MATCH PATTERN                          *cash-match-pattern*
+
+The search pattern is the string a cash register holds, exactly as you typed
+it. An empty one highlights nothing.
+
+The match pattern is what Vim is actually asked to match: the search pattern
+with a case flag prepended onto the front of it. An explicit |/\c| or |/\C| in
+the pattern wins and makes 'ignorecase' irrelevant to that register;
+otherwise the current value of 'ignorecase' decides the flag. So each cash
+register keeps its own case sensitivity—if one holds `\Cfoo` and another
+holds `bar`, the first stays case-sensitive and the second still follows
+'ignorecase'.
+
+The detail pane shows the match pattern for a register, which is usually the
+first thing to look at when a search behaves oddly. See |cash-detail-pane|.
+
+
+==============================================================================
+6. SEARCHING                                                  *cash-searching*
+
+Search with |/| as normal. Whatever you search for is stored in the working
+cash register and highlighted in that register's color. Searching again
+overwrites it, exactly as Vim overwrites |quote_/|. The other eight registers
+are left alone.
+
+|star| and |#| also write into the working cash register. By default they do
+not jump to the next occurrence, which is a departure from Vim; set
+`disableStarPoundJump` to `false` to get the jump back. Supplying a count
+(`3*`) always jumps, no matter what the option says.
+
+However you arrive at a match (|/|, |star|, |#|, a switch to another cash
+register, |n|, or |N|), `centerAfterSearch` centers the window on it
+afterwards. See |cash-centerAfterSearch|.
+
+HIGHLIGHTING                                               *cash-highlighting*
+
+Every cash register's highlighting follows |v:hlsearch|, so |:nohlsearch|
+clears all nine at once and the next search (or the next |n|) brings them all
+back. There is no separate on/off state to remember, and `:Cash hide` and
+`:Cash show` are other ways to trigger the same concept.
+
+Cash.nvim switches 'hlsearch' on during setup, since without it there is
+nothing to see. Set `respectHLSearch` to `true` to have your own setting left
+alone.
+
+With `autoNoHighlight` switched on, the highlighting clears as soon as the
+cursor moves after a search. The cursor movement made by the search itself
+does not count, so a search jump still leaves its result lit. `:Cash autohide`
+switches this on and off without a restart.
+
+INVALID PATTERNS                                       *cash-invalid-patterns*
+
+A cash register holds whatever you typed, including a pattern Vim cannot
+compile. Such a register simply highlights nothing and is skipped by |n| and
+|N|. In this case, Vim has already complained about the search itself, so
+nothing complains twice. The detail pane says `vim cannot compile` for it.
+
+
+==============================================================================
+7. INCLUDE IN SEARCH                                  *cash-include-in-search*
+
+By default |n| and |N| move between the matches of the working cash register
+only, skipping the matches of the other eight. Switching include-in-search on
+for another cash register adds it to the |cash-search-set|, so that |n| visits
+whichever match comes next from among all the patterns in the set.
+
+For example, if cash register 1 holds `foo` and cash register 2 holds `bar`,
+and both are in the search set, then |n| walks through every `foo` and every
+`bar` in whatever order they appear in the buffer. They keep their own colors
+while it happens.
+
+Including or excluding a cash register changes where |n| goes, not what is
+highlighted.
+
+This option can be toggled from the cash drawer using `<Space>`, from the
+command line using `:Cash include`, `:Cash exclude` and `:Cash toggle`, or from
+Lua: >lua
+
+    require('cash').setIncludeInSearch(2, true)
+    require('cash').toggleIncludeInSearch(2)
+<
+Setting `manageJumps` to `false` leaves |n| and |N| entirely alone, which also
+makes include-in-search do nothing at all. Set `manageJumps` to `false` if you
+don't want this plugin to mess with |n| and |N| at all.
+
+
+==============================================================================
+8. THE CHOOSER                                                  *cash-chooser*
+
+Pressing `?` in normal mode brings up the chooser and waits for one keypress.
+A digit from 1 to 9 makes that cash register the working one; anything else
+closes the chooser.
+
+The chooser looks like this: >
+
+    ╭─ Choose a cash register ───────────────╮
+    │  ▸ 1  foo      2  bar      3  \<baz\>  │
+    │    4  ·        5  ·        6  ·        │
+    │    7  ·        8  ·        9  TODO     │
+    ╰────────────────────────────────────────╯
+<
+The `▸` marks the working cash register, and `·` marks an empty one.
+
+The `prompt.style` setting determines what the looks like: `'grid'` lays the
+nine cash registers out in a grid and shows what each one holds, `'strip'`
+shows a single line of numbers in their colors, and `'none'` turns the popup
+off and asks with a message on the command line. `prompt.position` and
+`prompt.border` position the popup and frame it, respectively. See
+|cash-configuration| for option details.
+
+Selecting a cash register also searches for its pattern, so the cursor moves
+to the next match the way it would after a search. Selecting an empty one
+clears |quote_/| and leaves the cursor alone.
+
+
+==============================================================================
+9. THE CASH DRAWER                                               *cash-drawer*
+
+`:Cash` opens the cash drawer (cha-ching): a popup showing all nine cash
+registers at once. It shows their contents, their colors, which ones |n| and
+|N| will visit, and how many matches each one has in the buffer you came from.
+>
+
+    ╭─ Cash.nvim Registers ────────────────────────────────────╮
+    │          Register contents                 Match count   │
+    │  ▸ 1  ●  foo                                        12   │
+    │    2  ○  bar                                         3   │
+    │    3  ●  \<baz\>                                     0   │
+    │    4  ○                                                  │
+    │    5  ○                                                  │
+    │    6  ○                                                  │
+    │    7  ○                                                  │
+    │    8  ○                                                  │
+    │    9  ○  TODO                                       47   │
+    │  │ │  │                                                  │
+    │  │ │  ╰─Include in search                                │
+    │  │ ╰─Cash register number                                │
+    │  ╰─Selected cash register                                │
+    │──────────────────────────────────────────────────────────│
+    │  n/N will jump between  1 3                              │
+    │──────────────────────────────────────────────────────────│
+    │ <CR>     select reg, close  <Tab>  select reg, stay open │
+    │ <Space>  toggle include     ]/[    swap register down/up │
+    │ ?        show details       <C-c>  close, undo changes   │
+    │ q/<Esc>  apply and close                                 │
+    ╰──────────────────────────────────────────────────────────╯
+<
+The editable content of each row is nothing but the register's search pattern.
+Everything else on the row (the marker, the number, the include dot, and the
+match count) is drawn on top rather than being text, so the cursor cannot
+reach it and no edit can damage it.
+
+That is what makes the rows editable with ordinary Vim commands. `cw`, `D`,
+`A`, `x`, `p`, `.`, `u`, macros, etc. all work on the line under the cursor.
+Editing the cash registers here modifies their contents in real time and the
+highlighting behind the drawer updates as you type.
+
+Since there are always nine cash registers, there are always nine rows.
+Commands that would add or remove one are either mapped away or quietly
+repaired (you can't delete or add lines with `Vd` or `o` for instance).
+
+Opening the drawer ends |:nohlsearch|, highlighting all the matches again.
+
+DRAWER MAPPINGS                                         *cash-drawer-mappings*
+
+j  k                    Move between cash registers. gg, G and the rest work
+                        too.
+any edit                Change the contents of the cash register under the
+			cursor. The row is nothing but its search pattern, so
+			every ordinary editing command already does the right
+			thing.
+dd                      Empty the cash register under the cursor. It clears
+                        the row rather than removing it, because there are
+                        always nine cash registers.
+<Space>                 Toggle include-in-search for the cash register under
+                        the cursor. See |cash-include-in-search|.
+<CR>                    Select the cash register under the cursor and close
+			the drawer.
+<Tab>                   Select the cash register under the cursor and keep the
+			drawer open.
+]  [                    Swap the cash register under the cursor with the one
+                        below or above. The contents move but the colors stay
+                        put, so this is how a search gets re-colored.
+?                       Show or hide the detail pane. See |cash-detail-pane|.
+q  <Esc>                Apply and close.
+CTRL-C                  Close and put everything back as it was when the
+                        drawer opened.
+
+`o`, `O` and insert-mode `<CR>` are disabled, since each of them would add a
+row.
+
+THE DETAIL PANE                                             *cash-detail-pane*
+
+`?` opens a pane beside the drawer with everything about one cash register
+that does not fit on its row. It follows the cursor. >
+
+    ╭─ Details ────────────────────────────╮
+    │  cash register 3                     │
+    │                                      │
+    │  contents          \<baz\>           │
+    │  match pattern     \C\<baz\>         │
+    │  include in search no                │
+    │  selected          no                │
+    │                                      │
+    │  matching window IDs 1000  1001      │
+    ╰──────────────────────────────────────╯
+<
+`contents`              The cash register contents, exactly as typed.
+`match pattern`         What Vim is actually given, with the case flag
+                        added to the front. See |cash-match-pattern|.
+`include in search`     Whether |n| and |N| will visit this cash register. It
+			always reads `yes` for the working register, which is
+			always in the search set.
+`selected`              Whether this is the working cash register.
+`matching window IDs`   The IDs of the windows in which this register's
+			pattern actually occurs.
+
+Set `ui.detailPane` to `true` to have the pane open with the drawer every
+time.
+
+If the Vim editor is too narrow, attempting to open the details pane reports
+an error.
+
+
+==============================================================================
+10. COMMANDS                                                   *cash-commands*
+
+Cash.nvim takes one command with verbs, rather than a command per action. All
+of the verbs and their arguments complete with |c_CTRL-D| and |'wildmenu'|.
+
+Note: {n} is always a whole number from 1 to 9. Anything else is refused with
+a message rather than acted on.
+
+------------------------------------------------------------------------------
+                                                                       *:Cash*
+:Cash                   Open the cash drawer. See |cash-drawer|. If it is
+                        already open, focus it.
+
+                                                                   *:Cash-use*
+:Cash use {n}           Make cash register {n} the working one. The same as
+                        pressing `?` followed by {n}.
+
+                                                               *:Cash-include*
+:Cash include {n}       Add cash register {n} to the search set.
+                        See |cash-include-in-search|.
+
+                                                               *:Cash-exclude*
+:Cash exclude {n}       Remove cash register {n} from the search set.
+
+                                                                *:Cash-toggle*
+:Cash toggle {n}        Toggle whether cash register {n} is in the search set.
+
+                                                                 *:Cash-clear*
+:Cash clear [{n}]       Empty cash register {n}, or the working cash register
+                        if {n} is omitted.
+
+                                                                 *:Cash-reset*
+:Cash reset             Empty all nine cash registers and go back to working
+                        in cash register 1.
+
+                                                                  *:Cash-hide*
+:Cash hide              Hide all search highlighting. Exactly |:nohlsearch|.
+                        The registers keep their contents.
+
+                                                                  *:Cash-show*
+:Cash show              Bring search highlighting back. |n| and |N| bring it
+                        back too, so this is rarely needed on its own.
+
+                                                              *:Cash-autohide*
+:Cash autohide [{arg}]  Change whether search highlighting clears as soon as
+                        the cursor moves, where {arg} is `on`, `off` or
+                        `toggle`. Toggles if {arg} is omitted. This command
+			modifies the `autoNoHighlight` option.
+------------------------------------------------------------------------------
+
+
+==============================================================================
+11. DEFAULT MAPPINGS                                           *cash-mappings*
+
+                                                                      *cash-?*
+?                       Normal mode. Open the chooser and wait for a digit,
+                        which becomes the working cash register. See
+                        |cash-chooser|. This replaces Vim's backward search;
+                        see |cash-compatibility|.
+
+                                                             *cash-n* *cash-N*
+n                       Normal mode. Move to the next match from among the
+N                       cash registers in the search set; `N` reverses the
+                        direction, the way Vim's own |n| and |N| do. Only
+                        created when `manageJumps` is `true`.
+
+                                                          *cash-star* *cash-#*
+*                       Normal mode. Store the word under the cursor in the
+#                       working cash register. By default the cursor does not
+                        move; see `disableStarPoundJump`. Any mapping you
+                        already had for these keys is kept and still runs.
+
+Whenever the search set includes only the working cash register on its own,
+the `n` and `N` mappings hand straight back to Vim. Counts, search offsets,
+folds, the wrap message and the |jumplist| all come from Vim itself in that
+case, so the ordinary case is not a reimplementation of anything.
+
+With more than one cash register in the search set, `n` and `N` move to the
+start of the next match, announce a wrap the way Vim does (unless 'shortmess'
+contains `s`), respect 'wrapscan', take a count, and report `E486` naming
+every pattern that was looked for. Search offsets (|search-offset|) are not
+applied.
+
+
+==============================================================================
+12. CONFIGURATION                                         *cash-configuration*
+
+Options are passed to |cash.setup()|. Anything left out keeps its default;
+anything misspelled or of the wrong type raises an error naming the option,
+rather than being ignored.
+
+Defaults: >lua
+
+    require('cash').setup({
+        autoNoHighlight = false,
+        centerAfterSearch = true,
+        colors = {
+            defaultBG = '#FF9E3B',
+            defaultFG = '#16161D',
+            highlightColors = {
+                { bg = '#FF9E3B' },                 -- cash register 1
+                { bg = '#7FB4CA' },                 -- cash register 2
+                { bg = '#D27E99' },                 -- cash register 3
+                { bg = '#98BB6C' },                 -- cash register 4
+                { bg = '#DCA561' },                 -- cash register 5
+                { bg = '#957FB8' },                 -- cash register 6
+                { bg = '#76946A' },                 -- cash register 7
+                { bg = '#C34043' },                 -- cash register 8
+                { bg = '#2D4F67', fg = '#DCD7BA' }, -- cash register 9
+            },
+        },
+        disableStarPoundJump = true,
+        manageJumps = true,
+        prompt = {
+            style = 'grid',
+            position = 'center',
+            border = 'rounded',
+        },
+        respectHLSearch = false,
+        ui = {
+            position = 'center',
+            border = 'rounded',
+            detailPane = false,
+        },
+    })
+<
+------------------------------------------------------------------------------
+autoNoHighlight                                         *cash-autoNoHighlight*
+                        boolean, default `false`
+
+    Clear every cash register's highlighting as soon as the cursor moves. The
+    cursor movement made by the search jump itself does not count, so a search
+    still leaves its result lit. Switchable at any time with |:Cash-autohide|.
+
+centerAfterSearch                                     *cash-centerAfterSearch*
+                        boolean, default `true`
+
+    Center the window on the match after a search, as though |zz| had been
+    pressed. This covers every way of arriving at one: |/|, |star|, |#|, a
+    switch to another cash register, |n|, and |N|. A search that finds nothing
+    leaves the window where it was.
+
+colors.defaultBG                                       *cash-colors.defaultBG*
+colors.defaultFG                                       *cash-colors.defaultFG*
+                        string of the form `'#RRGGBB'`
+
+    The background and foreground used for any entry of
+    `colors.highlightColors` that does not specify its own.
+
+colors.highlightColors                           *cash-colors.highlightColors*
+                        list of exactly 9 tables
+
+    The color of each cash register, in order. Each entry may have a `bg`, an
+    `fg`, or both, given as `'#RRGGBB'`; missing entries use
+    `colors.defaultBG` and `colors.defaultFG`.
+
+    There have to be exactly nine entries, since there are exactly nine cash
+    registers. A shorter list is refused during setup.
+
+disableStarPoundJump                               *cash-disableStarPoundJump*
+                        boolean, default `true`
+
+    Vim jumps to the next occurrence when a search is started with |star| or
+    |#|. Cash.nvim stays put instead. Set this to `false` to get Vim's
+    behavior back. A count (`3*`) jumps either way.
+
+manageJumps                                                 *cash-manageJumps*
+                        boolean, default `true`
+
+    Let Cash.nvim own |n| and |N|, so that they can move between the matches
+    of every cash register in the search set. With one cash register in the
+    search set, the mapping hands straight back to Vim, so nothing changes
+    until you ask for it.
+
+    Set this to `false` to leave the keys alone entirely, at the cost of
+    |cash-include-in-search| doing nothing.
+
+prompt.style                                               *cash-prompt.style*
+                        `'grid'`, `'strip'` or `'none'`, default `'grid'`
+
+    What the `?` chooser looks like. `'grid'` lays the cash registers out in a
+    grid and shows their contents, `'strip'` is one line of numbers in their
+    colors, and `'none'` turns the popup off and asks with a message on the
+    command line. See |cash-chooser|.
+
+prompt.position                                         *cash-prompt.position*
+ui.position                                                 *cash-ui.position*
+                        string, default `'center'`
+
+    Where the chooser and the cash drawer appear on screen. One of
+    `'top-left'`, `'top'`, `'top-right'`, `'left'`, `'center'`, `'right'`,
+    `'bottom-left'`, `'bottom'` or `'bottom-right'`. The command line and the
+    status line are never covered.
+
+prompt.border                                             *cash-prompt.border*
+ui.border                                                     *cash-ui.border*
+                        string or table, default `'rounded'`
+
+    The border drawn around the chooser and the cash drawer, in any form
+    |nvim_open_win()| accepts.
+
+respectHLSearch                                         *cash-respectHLSearch*
+                        boolean, default `false`
+
+    Cash.nvim switches 'hlsearch' on during setup, since with it off there is
+    nothing to see. Set this to `true` to have your own setting left alone.
+
+ui.detailPane                                             *cash-ui.detailPane*
+                        boolean, default `false`
+
+    Whether the drawer's detail pane is already open when the drawer appears.
+    Pressing `?` from the drawer toggles it either way. Needs a window at
+    least 102 columns wide. See |cash-detail-pane|.
+------------------------------------------------------------------------------
+
+
+==============================================================================
+13. LUA API                                                         *cash-api*
+
+Everything below is a field of the table returned by `require('cash')`.
+
+cash.setup({opts})                                              *cash.setup()*
+
+    Validate {opts}, fill in the defaults, create the highlight groups, the
+    mappings and the |:Cash| command, and bring any windows that are already
+    open in line. Must be called before anything else in this section.
+    See |cash-configuration|.
+
+cash.nextMatch()                                            *cash.nextMatch()*
+cash.previousMatch()                                    *cash.previousMatch()*
+
+    What |n| and |N| do. Exported so that anyone wanting their own `n`
+    behavior can wrap these rather than replace them. Replacing them takes the
+    search set out of the picture, which breaks the functionality. See
+    |cash-tips|.
+
+cash.setCashRegister({index})                         *cash.setCashRegister()*
+
+    Make cash register {index} the working one and search for its pattern.
+    The same as `?{index}` and |:Cash-use|. {index} must be a whole number
+    from 1 to 9; anything else is refused with a message.
+
+cash.setIncludeInSearch({index}, {include})        *cash.setIncludeInSearch()*
+cash.toggleIncludeInSearch({index})             *cash.toggleIncludeInSearch()*
+
+    Set or toggle whether |n| and |N| visit cash register {index}. See
+    |cash-include-in-search|.
+
+cash.clearCashRegister([{index}])                   *cash.clearCashRegister()*
+
+    Empty cash register {index}, or the working cash register if {index} is
+    omitted.
+
+cash.resetCashRegisters()                          *cash.resetCashRegisters()*
+
+    Empty all nine cash registers, clear |quote_/| and go back to working in
+    cash register 1.
+
+cash.showHighlighting()                              *cash.showHighlighting()*
+
+    Turn search highlighting back on, undoing a |:nohlsearch|, and bring every
+    cash register back with it.
+
+cash.updateHighlights()                              *cash.updateHighlights()*
+
+    Bring the highlighting in every window in line with the current state.
+    Idempotent function. Cheap to call when nothing is out of place. Cash.nvim
+    calls this itself whenever anything could have possibly invalidated the
+    highlighting, so it is only needed for something that changes the state
+    behind its back.
+
+cash.setSearch({pattern})                                   *cash.setSearch()*
+
+    Store {pattern} in the working cash register without searching for it.
+    This is what the |/| and |star| mappings call.
+
+cash.state                                                        *cash.state*
+
+    Gives the current state, for reading: >lua
+
+        local cash = require('cash')
+        cash.state.currentIndex                     -- 1 to 9
+        cash.state.cashRegisters[3].pattern         -- string
+        cash.state.cashRegisters[3].includeInSearch -- boolean
+<
+    Writing to it directly will not update the highlighting. Use the
+    functions above instead, or call |cash.updateHighlights()| afterward.
+
+cash.opts                                                          *cash.opts*
+
+    The resolved options, as they came out of |cash.setup()|.
+
+
+==============================================================================
+14. HIGHLIGHT GROUPS                                   *cash-highlight-groups*
+
+                                                             *hl-CashRegister*
+CashRegister1 ... CashRegister9
+			The color of each cash register in the buffer. Created
+			during setup from `colors.highlightColors`, and used
+			both for the matches and for the register's row in the
+			drawer and the chooser.
+
+                                                           *hl-CashRegisterFg*
+CashRegisterFg1 ... CashRegisterFg9
+			The same color as a foreground rather than as a
+			swatch, for the places a full swatch would be too
+                        heavy: the include dot, the marker and the match
+                        count. A color chosen to be a background is not
+                        always legible as text, so anything too dark is
+                        lightened until it is.
+
+|hl-Search|             Re-colored to the working cash register's color, and
+                        re-colored again whenever the working cash register
+                        changes. The working register is drawn by 'hlsearch'
+                        rather than by a match of its own, which is what keeps
+                        |:nohlsearch| and |quote_/| behaving normally for it.
+
+The eight other matches are added with a priority below that of the search
+highlighting, so where two cash registers match the same text, the working one
+is the one you see.
+
+Setting any of these groups yourself is possible but pointless: Cash.nvim sets
+`Search` again on every update, and the `CashRegister` groups again on
+|cash.setup()|. Use the `colors.highlightColors` option instead.
+
+
+==============================================================================
+15. COMPATIBILITY                                         *cash-compatibility*
+
+THE ? KEY IS TAKEN                                      *cash-compat-question*
+
+Cash.nvim maps `?` in normal mode, so |?| no longer starts a backward search.
+|/| with |N| goes backward through the same matches. To get a backward search
+on another key: >lua
+
+    vim.keymap.set('n', '<Leader>?', '?')
+<
+n AND N ARE MAPPED                                             *cash-compat-n*
+
+With `manageJumps` on, which is the default, |n| and |N| belong to Cash.nvim
+so that they can move between the matches of more than one cash register. If
+you map `n` yourself (`vim.keymap.set('n', 'n', 'nzz')` is a common one), your
+mapping will replace Cash.nvim's mapping, causing include-in-search to stop
+working. Map |cash.nextMatch()| and |cash.previousMatch()| instead; see
+|cash-tips|. The most common reason for wanting `nzz` is already covered by
+|cash-centerAfterSearch|, which centers after |n| and |N| as well.
+
+Only normal mode is taken. In operator-pending and visual mode, `dn` and `vn`
+still read |quote_/|, which is the working cash register on its own.
+
+THE Search HIGHLIGHT IS RE-COLORED                     *cash-compat-search-hl*
+
+The |hl-Search| highlight group is set to the working cash register's color,
+so a colorscheme's own `Search` color is overridden. This is how the working
+cash register gets its color; see |cash-highlight-groups|.
+
+hlsearch IS SWITCHED ON                                 *cash-compat-hlsearch*
+
+Setup switches 'hlsearch' on. Set `respectHLSearch` to `true` to prevent this.
+
+SEARCH OFFSETS                                           *cash-compat-offsets*
+
+With more than one cash register in the search set, |n| and |N| move to the
+start of the next match; |search-offset| is not applied. When the search set
+is a single cash register—which is the default—Vim's own |n| is used, so
+offsets work normally.
+
+
+==============================================================================
+16. TIPS                                                           *cash-tips*
+
+These are not part of Cash.nvim, but they go well with it.
+
+DO SOMETHING AFTER EVERY JUMP                            *cash-tip-after-jump*
+
+Centering is built in; see |cash-centerAfterSearch|. Anything else you want to
+happen after each jump goes on the API functions rather than on Vim's `n`, so
+that the search set is still taken into account. For example, you could put
+the match at the top of the window instead of in the middle: >lua
+
+    local cash = require('cash')
+    vim.keymap.set('n', 'n', function()
+        cash.nextMatch()
+        vim.cmd('normal! zt')
+    end)
+    vim.keymap.set('n', 'N', function()
+        cash.previousMatch()
+        vim.cmd('normal! zt')
+    end)
+<
+Do not use something like `vim.keymap.set('n', 'n', 'nzz')` for this. That
+calls Vim's built-in |n|, which knows nothing about the search set, so `n`
+would only ever be able to visit the working cash register.
+
+ADD A TERM TO THE CURRENT SEARCH                           *cash-tip-add-term*
+
+In a pattern, `\|` is the "or" operator (see |/\bar|), so `foo\|bar` matches
+both. This mapping starts a new search from the contents of the old one, so
+that a second term can be typed onto the end of it: >lua
+
+    vim.keymap.set('n', '+', '/<C-r>/\\|')
+<
+By default |+| just moves the cursor down a line, much as |j| does, which
+makes it a good candidate for remapping.
+
+Note that this is a different thing from |cash-include-in-search|: both terms
+end up in one cash register, so they share one color.
+
+KEEP ONE REGISTER FOR A STANDING SEARCH                      *cash-tip-always*
+
+Nothing ever writes into a cash register except a search made while it is the
+working one, so a register you never work in keeps its pattern for as long as
+the session lasts. Cash register 9 holding `\<TODO\>` stays lit underneath
+every search you make in the other eight.
+
+
+==============================================================================
+17. ABOUT                                                         *cash-about*
+
+Cash.nvim is written by Kyle Kovacs and is available under the MIT license.
+
+    Homepage:   https://github.com/nullromo/cash.nvim
+    Issues:     https://github.com/nullromo/cash.nvim/issues
+    Sponsor:    https://github.com/sponsors/nullromo
+
+Issues, comments, discussions, feature requests and pull requests are all
+welcome.
+
+
+vim:tw=78:ts=8:sw=8:noet:ft=help:norl:
