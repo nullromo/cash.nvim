@@ -121,6 +121,31 @@ CashModule.toggleIncludeInSearch = function(index)
     )
 end
 
+-- turns search highlighting back on, undoing a :nohlsearch, and brings every
+-- cash register back with it.
+--
+-- v:hlsearch is saved and restored around autocmd execution and around
+-- function calls, so assigning it from inside a callback holds for the rest of
+-- that callback and is then thrown away. The matches added meanwhile stay on
+-- screen, which makes it look as though it worked, until the next update finds
+-- v:hlsearch back at 0 and takes them all away again. Scheduling the
+-- assignment runs it outside that context, where it sticks. Both are done: the
+-- first so that the caller sees the effect immediately, the second so that it
+-- lasts
+CashModule.showHighlighting = function()
+    pcall(function()
+        vim.v.hlsearch = 1
+    end)
+    CashModule.updateHighlights()
+
+    vim.schedule(function()
+        pcall(function()
+            vim.v.hlsearch = 1
+        end)
+        CashModule.updateHighlights()
+    end)
+end
+
 -- empties one cash register, or the selected one if no index is given
 CashModule.clearCashRegister = function(index)
     index = index or CashModule.state.currentIndex

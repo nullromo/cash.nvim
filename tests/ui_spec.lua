@@ -322,6 +322,122 @@ return function(h)
 
     ----------------------------------------------------------------------
 
+    h.group('the selected cash register is not left behind')
+
+    do
+        local origin = fresh()
+        cash.setSearch('foo')
+        vim.fn.setreg('/', 'foo')
+        cash.setCashRegister(2)
+        cash.setSearch('bar')
+        cash.setCashRegister(1)
+
+        vim.cmd('Cash')
+        edit('ggVGd')
+
+        h.check(
+            'clearing every row removes every match',
+            #vim.fn.getmatches(origin) == 0,
+            #vim.fn.getmatches(origin) .. ' matches'
+        )
+
+        -- the selected cash register is painted by vim's own hlsearch on @/
+        -- rather than by a match, so it is the one register updateHighlights
+        -- cannot reach. Left behind, it goes on painting what it said when the
+        -- drawer opened, which looks like highlighting that will not go away
+        h.check(
+            'and empties the search register with them',
+            vim.fn.getreg('/') == '',
+            'got [' .. vim.fn.getreg('/') .. ']'
+        )
+
+        press('q')
+    end
+
+    ----------------------------------------------------------------------
+
+    h.group('undo inside the drawer')
+
+    do
+        fresh()
+        cash.setSearch('foo')
+        cash.setCashRegister(2)
+        cash.setSearch('bar')
+        cash.setCashRegister(1)
+        vim.cmd('Cash')
+
+        -- dropping undolevels and putting it back throws the whole undo
+        -- history away rather than skipping one change, so doing it on every
+        -- write left nothing to undo at all
+        edit('ggVGd')
+        h.check(
+            'a change made in the drawer can be undone',
+            #vim.fn.undotree().entries > 0,
+            #vim.fn.undotree().entries .. ' undo entries'
+        )
+
+        edit('u')
+        h.check(
+            'and u puts the patterns back',
+            vim.api.nvim_buf_get_lines(0, 0, 2, false)[1] == 'foo',
+            vim.inspect(vim.api.nvim_buf_get_lines(0, 0, 2, false))
+        )
+        h.check(
+            'without the row count drifting',
+            vim.api.nvim_buf_line_count(0) == 9,
+            vim.api.nvim_buf_line_count(0) .. ' lines'
+        )
+
+        press('q')
+    end
+
+    ----------------------------------------------------------------------
+
+    h.group('opening the drawer ends a nohlsearch')
+
+    do
+        local origin = fresh()
+        cash.setSearch('foo')
+        cash.setCashRegister(2)
+        cash.setSearch('bar')
+        cash.setCashRegister(1)
+
+        vim.cmd('nohlsearch')
+        cash.updateHighlights()
+        h.check(
+            'nothing is lit to begin with',
+            #vim.fn.getmatches(origin) == 0,
+            #vim.fn.getmatches(origin) .. ' matches'
+        )
+
+        -- there is no point showing every cash register's contents and colors
+        -- in the drawer while the buffer behind it stays dark, and the preview
+        -- would have nothing to preview
+        vim.cmd('Cash')
+        h.check(
+            'opening the drawer brings the highlighting back',
+            vim.v.hlsearch == 1 and #vim.fn.getmatches(origin) == 1,
+            'v:hlsearch='
+                .. vim.v.hlsearch
+                .. ' '
+                .. #vim.fn.getmatches(origin)
+                .. ' matches'
+        )
+
+        press('q')
+        h.check(
+            'and it is still on once the drawer closes',
+            vim.v.hlsearch == 1 and #vim.fn.getmatches(origin) == 1,
+            'v:hlsearch='
+                .. vim.v.hlsearch
+                .. ' '
+                .. #vim.fn.getmatches(origin)
+                .. ' matches'
+        )
+    end
+
+    ----------------------------------------------------------------------
+
     h.group('abandoning changes')
 
     do

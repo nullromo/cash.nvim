@@ -231,39 +231,38 @@ local decorate = function()
     })
 end
 
--- runs a write that the plugin made itself rather than the user: opening,
--- swapping, repairing the row count.
+-- writes the nine patterns into the buffer.
 --
--- undolevels is dropped for the write so that none of it lands in the undo
--- history. u inside the drawer should undo what the user typed and nothing
--- else -- otherwise u at the wrong moment restores the empty buffer the drawer
--- started as, and the guard below reads that back as nine empty cash registers
-local writeWithoutUndo = function(write)
+-- forgetUndo is for the very first write only. Dropping undolevels and putting
+-- it back is vim's documented way to throw away the undo history (:h
+-- clear-undo) -- not to skip recording one change, which is what it looks like
+-- it does. Used on every write it wipes the history each time, and u stops
+-- working altogether. Used once, at the start, it is exactly right: u must not
+-- be able to rewind to the empty buffer the drawer began as, because the
+-- row-count guard would read that back as nine empty cash registers
+local writeLines = function(forgetUndo)
     local buffer = drawer.buffer
-
-    drawer.writing = true
-
-    local undolevels = vim.bo[buffer].undolevels
-    vim.bo[buffer].undolevels = -1
-    write(buffer)
-    vim.bo[buffer].undolevels = undolevels
-
-    drawer.writing = false
-end
-
-local writeLines = function()
     local patterns = {}
     for index = 1, 9 do
         table.insert(patterns, drawer.cash.state.cashRegisters[index].pattern)
     end
 
-    writeWithoutUndo(function(buffer)
-        vim.api.nvim_buf_set_lines(buffer, 0, -1, false, patterns)
-    end)
+    drawer.writing = true
+
+    local undolevels = vim.bo[buffer].undolevels
+    if forgetUndo then
+        vim.bo[buffer].undolevels = -1
+    end
+    vim.api.nvim_buf_set_lines(buffer, 0, -1, false, patterns)
+    if forgetUndo then
+        vim.bo[buffer].undolevels = undolevels
+    end
+
+    drawer.writing = false
 end
 
-local render = function()
-    writeLines()
+local render = function(forgetUndo)
+    writeLines(forgetUndo)
     decorate()
 end
 
@@ -274,22 +273,31 @@ end
 -- :move, a macro. Repairing is better than refusing, since refusing would mean
 -- watching every route into the buffer rather than the one invariant
 local enforceNineLines = function()
-    local count = vim.api.nvim_buf_line_count(drawer.buffer)
+    local buffer = drawer.buffer
+    local count = vim.api.nvim_buf_line_count(buffer)
     if count == 9 then
         return
     end
 
-    writeWithoutUndo(function(buffer)
-        if count > 9 then
-            vim.api.nvim_buf_set_lines(buffer, 9, -1, false, {})
-        else
-            local padding = {}
-            for _ = count + 1, 9 do
-                table.insert(padding, '')
-            end
-            vim.api.nvim_buf_set_lines(buffer, count, count, false, padding)
+    drawer.writing = true
+
+    -- the repair belongs to the change that caused it, so that one u takes
+    -- both back together. Without this the user's dd and the row it puts back
+    -- are two separate undo steps, and u appears to do nothing at all.
+    -- undojoin refuses right after an undo, which is not worth reporting
+    pcall(vim.cmd, 'silent! undojoin')
+
+    if count > 9 then
+        vim.api.nvim_buf_set_lines(buffer, 9, -1, false, {})
+    else
+        local padding = {}
+        for _ = count + 1, 9 do
+            table.insert(padding, '')
         end
-    end)
+        vim.api.nvim_buf_set_lines(buffer, count, count, false, padding)
+    end
+
+    drawer.writing = false
 end
 
 -- reads the buffer back into the cash registers. The buffer is the truth while
@@ -553,10 +561,16 @@ ui.open = function(cash)
         writing = false,
     }
 
-    render()
+    -- the first write, and the only one that throws the undo history away
+    render(true)
     setUpKeymaps(cash)
 
     vim.api.nvim_win_set_cursor(window, { cash.state.currentIndex, 0 })
+
+    -- opening the drawer ends a :nohlsearch. There is no point showing every
+    -- cash register's contents and colors in here while the buffer behind
+    -- stays dark, and the preview would have nothing to preview
+    cash.showHighlighting()
 
     -- the preview. Editing a pattern updates the highlights in the buffers
     -- behind the drawer as it is typed, which is the reason to edit here
@@ -571,14 +585,19 @@ ui.open = function(cash)
             enforceNineLines()
             syncFromBuffer()
 
-            -- editing a search is a reason to show search highlighting again,
-            -- the same way searching is. Without this the preview shows
-            -- nothing at all after :nohlsearch
-            pcall(function()
-                vim.v.hlsearch = 1
-            end)
+            -- the selected cash register is shown by vim's own hlsearch on @/,
+            -- not by a match, so it is the one register the preview cannot
+            -- reach through updateHighlights. Left behind, it keeps painting
+            -- whatever it said when the drawer opened -- including after the
+            -- row has been emptied, which looks like highlighting that will
+            -- not go away
+            local cash = drawer.cash
+            vim.fn.setreg(
+                '/',
+                cash.state.cashRegisters[cash.state.currentIndex].pattern
+            )
 
-            drawer.cash.updateHighlights()
+            cash.updateHighlights()
             decorate()
         end,
     })

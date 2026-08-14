@@ -202,10 +202,7 @@ keymaps.setUpKeymaps = function(cash)
             cash.updateHighlights()
         end,
         show = function()
-            pcall(function()
-                vim.v.hlsearch = 1
-            end)
-            cash.updateHighlights()
+            cash.showHighlighting()
         end,
     }
 
