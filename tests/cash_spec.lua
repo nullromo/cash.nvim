@@ -33,11 +33,7 @@ return function(h)
     end
 
     local function ledgerWindowCount()
-        local count = 0
-        for _ in highlights.debugInfo():gmatch('window %d+:') do
-            count = count + 1
-        end
-        return count
+        return #highlights.trackedWindows()
     end
 
     -- a single empty window with the plugin freshly set up. Returns its ID

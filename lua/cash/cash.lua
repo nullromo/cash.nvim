@@ -273,25 +273,4 @@ CashModule.setUpAutocmds = function()
     })
 end
 
--- print debug info
-CashModule.printDebugInfo = function()
-    local registers = {}
-    for index = 1, 9 do
-        local register = CashModule.state.cashRegisters[index]
-        table.insert(
-            registers,
-            register.pattern .. (register.includeInSearch and ' (in n/N)' or '')
-        )
-    end
-
-    vim.notify(
-        'index: '
-            .. CashModule.state.currentIndex
-            .. '\ncash registers: '
-            .. table.concat(registers, ', ')
-            .. '\nwindowMatchIDs: \n'
-            .. highlights.debugInfo()
-    )
-end
-
 return CashModule

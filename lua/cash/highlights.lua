@@ -219,23 +219,20 @@ highlights.update = function(cashRegisters, currentIndex)
     end
 end
 
--- human-readable dump of the ledger, for printDebugInfo
-highlights.debugInfo = function()
-    local lines = {}
+-- the windows the ledger is keeping track of.
+--
+-- The ledger is private, and stays that way. This exists because whether a
+-- closed window has been forgotten is not observable from anywhere else, and
+-- that is worth a test
+highlights.trackedWindows = function()
+    local windows = {}
 
-    for windowID, matches in pairs(ledger) do
-        local entries = {}
-        for index = 1, 9 do
-            local entry = matches[index]
-            table.insert(entries, entry == nil and 'nil' or tostring(entry.id))
-        end
-        table.insert(
-            lines,
-            '\twindow ' .. windowID .. ': ' .. table.concat(entries, ', ')
-        )
+    for windowID in pairs(ledger) do
+        table.insert(windows, windowID)
     end
 
-    return table.concat(lines, '\n')
+    table.sort(windows)
+    return windows
 end
 
 return highlights
