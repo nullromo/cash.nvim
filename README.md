@@ -57,11 +57,11 @@ By default, pressing <kbd>?</kbd> brings up a chooser showing all nine cash
 registers in their own colors, so you can see which number is the one you want.
 
 ```
-╭─────────────────────────────────────╮
-│   1  foo     2  bar     3  \<baz\>  │
-│   4  ·       5  ·       6  ·        │
-│   7  ·       8  ·       9  TODO     │
-╰─────────────────────────────────────╯
+╭─ Choose a cash register ───────────────╮
+│  ▸ 1  foo      2  bar      3  \<baz\>  │
+│    4  ·        5  ·        6  ·        │
+│    7  ·        8  ·        9  TODO     │
+╰────────────────────────────────────────╯
 ```
 
 The look of the chooser can be customized via the `prompt.style` option.
@@ -216,18 +216,20 @@ behavior.
         -- 'bottom', 'bottom-left', 'left', 'top-left', 'top', 'top-right', or
         -- 'right')
         position = 'center',
+        -- the chooser's border, in any form nvim_open_win accepts
+        border = 'rounded',
     },
     -- leave vim's hlsearch setting alone. This plugin overrides hlsearch by
     -- default
     respectHLSearch = false,
     -- the cash drawer, which :Cash opens
     ui = {
-        -- the drawer's border, in any form nvim_open_win accepts
-        border = 'rounded',
         -- where on screen the drawer appears ('center', 'bottom-right',
         -- 'bottom', 'bottom-left', 'left', 'top-left', 'top', 'top-right', or
         -- 'right')
         position = 'center',
+        -- the drawer's border, in any form nvim_open_win accepts
+        border = 'rounded',
     },
 }
 ```
@@ -245,7 +247,7 @@ behavior.
 | `autoNoHighlight`                         | boolean                                        | `false`     | Clear every cash register's highlighting as soon as the cursor moves. The cursor movement made by the search itself does not count. Switchable with `:Cash autohide`.                                                                                                                                                                                                                                          |
 | `prompt.style`                            | `'grid'`, `'strip'` or `'none'`                | `'grid'`    | What the <kbd>?</kbd> chooser looks like. `'grid'` lays the registers out like a numpad and shows what each one holds; `'strip'` is one line of numbers; `'none'` turns the chooser popup off.                                                                                                                                                                                                                 |
 | `prompt.position` and `ui.position`       | string                                         | `'center'`  | Where the chooser and the cash drawer appear: `'top-left'`, `'top'`, `'top-right'`, `'left'`, `'center'`, `'right'`, `'bottom-left'`, `'bottom'` or `'bottom-right'`.                                                                                                                                                                                                                                          |
-| `ui.border`                               | string or table                                | `'rounded'` | The cash drawer's border, in any form `nvim_open_win` accepts.                                                                                                                                                                                                                                                                                                                                                 |
+| `prompt.border` and `ui.border`           | string or table                                | `'rounded'` | Popup border settings for the chooser and drawer, in any form `nvim_open_win` accepts.                                                                                                                                                                                                                                                                                                                         |
 
 ## 💴 Other Tips
 

@@ -151,6 +151,49 @@ return function(h)
 
     ----------------------------------------------------------------------
 
+    h.group('the chooser has its own border')
+
+    do
+        -- two popups, two borders. Sharing one would mean the drawer and the
+        -- chooser could never be told apart at a glance
+        fresh({ prompt = { border = 'double' }, ui = { border = 'single' } })
+
+        local window = ui.openChooser(cash, 'strip')
+        local chooserBorder = vim.api.nvim_win_get_config(window).border[1]
+        vim.api.nvim_win_close(window, true)
+
+        ui.open(cash)
+        local drawerBorder = vim.api.nvim_win_get_config(
+            vim.api.nvim_get_current_win()
+        ).border[1]
+        ui.close()
+
+        h.check(
+            'the chooser uses prompt.border',
+            chooserBorder == '╔',
+            'got [' .. tostring(chooserBorder) .. ']'
+        )
+        h.check(
+            'and the drawer keeps ui.border',
+            drawerBorder == '┌',
+            'got [' .. tostring(drawerBorder) .. ']'
+        )
+
+        h.check(
+            'a border of the wrong type is rejected',
+            not pcall(cash.setup, { prompt = { border = 7 } })
+        )
+
+        fresh()
+        h.check(
+            'and it defaults to rounded like the drawer',
+            cash.opts.prompt.border == 'rounded',
+            'got [' .. tostring(cash.opts.prompt.border) .. ']'
+        )
+    end
+
+    ----------------------------------------------------------------------
+
     h.group('clearing the highlighting when the cursor moves')
 
     do

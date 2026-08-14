@@ -660,7 +660,7 @@ ui.openChooser = function(cash, style)
         row = where.row,
         col = where.col,
         style = 'minimal',
-        border = cash.opts.ui.border,
+        border = cash.opts.prompt.border,
         -- the leading dash continues the border rather than sitting apart from
         -- it, which needs the title drawn in the border's own colors
         title = '─ Choose a cash register ',

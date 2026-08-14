@@ -51,6 +51,8 @@ options.defaultOptions = {
         style = 'grid',
         -- where on screen it appears
         position = 'center',
+        -- the chooser's border, in any form nvim_open_win accepts
+        border = 'rounded',
     },
     -- leave vim's hlsearch setting alone. This plugin overrides hlsearch by
     -- default
@@ -157,6 +159,8 @@ options.validateOptions = function(opts)
                     util.checkOneOf(value2, name2, constants.promptStyles)
                 elseif key2 == 'position' then
                     util.checkOneOf(value2, name2, constants.positions)
+                elseif key2 == 'border' then
+                    util.checkBorder(value2, name2)
                 else
                     error(
                         '"' .. name2 .. '" ' .. constants.invalidOptionMessage
@@ -170,16 +174,7 @@ options.validateOptions = function(opts)
             for key2, value2 in pairs(value1) do
                 local name2 = name1 .. '.ui'
                 if key2 == 'border' then
-                    -- nvim_open_win takes a named border or a list of the
-                    -- pieces to build one from, so both are allowed through
-                    if type(value2) ~= 'string' and type(value2) ~= 'table' then
-                        error(
-                            '"'
-                                .. name2
-                                .. '.border" must be a string or a table for '
-                                .. 'Cash.nvim'
-                        )
-                    end
+                    util.checkBorder(value2, name2 .. '.border')
                 elseif key2 == 'position' then
                     util.checkOneOf(
                         value2,

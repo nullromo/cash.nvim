@@ -10,6 +10,14 @@ util.checkType = function(value, valueName, typeName)
     end
 end
 
+-- nvim_open_win takes a named border or a list of the pieces to build one
+-- from, so both are allowed through
+util.checkBorder = function(value, valueName)
+    if type(value) ~= 'string' and type(value) ~= 'table' then
+        error('"' .. valueName .. '" must be a string or a table for Cash.nvim')
+    end
+end
+
 -- for an option that only has a handful of legal answers. The complaint names
 -- all of them, since the whole point is that the user cannot guess
 util.checkOneOf = function(value, valueName, allowed)
