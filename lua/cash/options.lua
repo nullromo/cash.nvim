@@ -11,6 +11,17 @@ options.defaultOptions = {
     -- center the window on the match after every search: / and ?, * and #, a
     -- switch to another cash register, and n and N
     centerAfterSearch = true,
+    -- the popup that ? brings up to choose a cash register
+    chooser = {
+        -- 'grid' lays the nine out like a numpad and shows what each one
+        -- holds, 'strip' is one line of numbers in their colors, and 'none'
+        -- keeps the plain message and no popup at all
+        style = 'grid',
+        -- where on screen it appears
+        position = 'center',
+        -- the chooser's border, in any form nvim_open_win accepts
+        border = 'rounded',
+    },
     -- color settings
     colors = {
         -- default colors for foreground and background (used for highlight
@@ -37,29 +48,8 @@ options.defaultOptions = {
     -- next occurrence. Vim will jump by default; this plugin disables the jump
     -- by default
     disableStarPoundJump = true,
-    -- let this plugin own n and N, so that they can move between the matches
-    -- of every cash register in the search set. With one cash register in the
-    -- search set -- which is the case until include-in-search is switched on
-    -- somewhere -- the mapping hands straight back to vim, so n and N behave
-    -- exactly as they always did. Set this to false to leave them alone
-    -- entirely, at the cost of include-in-search doing nothing
-    manageJumps = true,
-    -- the popup that ? brings up to choose a cash register
-    prompt = {
-        -- 'grid' lays the nine out like a numpad and shows what each one
-        -- holds, 'strip' is one line of numbers in their colors, and 'none'
-        -- keeps the plain message and no popup at all
-        style = 'grid',
-        -- where on screen it appears
-        position = 'center',
-        -- the chooser's border, in any form nvim_open_win accepts
-        border = 'rounded',
-    },
-    -- leave vim's hlsearch setting alone. This plugin overrides hlsearch by
-    -- default
-    respectHLSearch = false,
     -- the cash drawer, which :Cash opens
-    ui = {
+    drawer = {
         -- the drawer's border, in any form nvim_open_win accepts
         border = 'rounded',
         -- where on screen it appears
@@ -68,6 +58,16 @@ options.defaultOptions = {
         -- toggles it either way
         detailPane = false,
     },
+    -- let this plugin own n and N, so that they can move between the matches
+    -- of every cash register in the search set. With one cash register in the
+    -- search set -- which is the case until include-in-search is switched on
+    -- somewhere -- the mapping hands straight back to vim, so n and N behave
+    -- exactly as they always did. Set this to false to leave them alone
+    -- entirely, at the cost of include-in-search doing nothing
+    manageJumps = true,
+    -- leave vim's hlsearch setting alone. This plugin overrides hlsearch by
+    -- default
+    respectHLSearch = false,
 }
 
 -- checks the user's options and fills in a default for everything they did
@@ -96,6 +96,22 @@ options.validateOptions = function(opts)
             util.checkType(value1, name1 .. '.autoNoHighlight', 'boolean')
         elseif key1 == 'centerAfterSearch' then
             util.checkType(value1, name1 .. '.centerAfterSearch', 'boolean')
+        elseif key1 == 'chooser' then
+            util.checkType(value1, name1 .. '.chooser', 'table')
+            for key2, value2 in pairs(value1) do
+                local name2 = name1 .. '.chooser.' .. key2
+                if key2 == 'style' then
+                    util.checkOneOf(value2, name2, constants.chooserStyles)
+                elseif key2 == 'position' then
+                    util.checkOneOf(value2, name2, constants.positions)
+                elseif key2 == 'border' then
+                    util.checkBorder(value2, name2)
+                else
+                    error(
+                        '"' .. name2 .. '" ' .. constants.invalidOptionMessage
+                    )
+                end
+            end
         elseif key1 == 'colors' then
             util.checkType(value1, name1 .. '.colors', 'table')
             for key2, value2 in pairs(value1) do
@@ -153,30 +169,10 @@ options.validateOptions = function(opts)
             end
         elseif key1 == 'disableStarPoundJump' then
             util.checkType(value1, name1 .. '.disableStarPoundJump', 'boolean')
-        elseif key1 == 'manageJumps' then
-            util.checkType(value1, name1 .. '.manageJumps', 'boolean')
-        elseif key1 == 'prompt' then
-            util.checkType(value1, name1 .. '.prompt', 'table')
+        elseif key1 == 'drawer' then
+            util.checkType(value1, name1 .. '.drawer', 'table')
             for key2, value2 in pairs(value1) do
-                local name2 = name1 .. '.prompt.' .. key2
-                if key2 == 'style' then
-                    util.checkOneOf(value2, name2, constants.promptStyles)
-                elseif key2 == 'position' then
-                    util.checkOneOf(value2, name2, constants.positions)
-                elseif key2 == 'border' then
-                    util.checkBorder(value2, name2)
-                else
-                    error(
-                        '"' .. name2 .. '" ' .. constants.invalidOptionMessage
-                    )
-                end
-            end
-        elseif key1 == 'respectHLSearch' then
-            util.checkType(value1, name1 .. '.respectHLSearch', 'boolean')
-        elseif key1 == 'ui' then
-            util.checkType(value1, name1 .. '.ui', 'table')
-            for key2, value2 in pairs(value1) do
-                local name2 = name1 .. '.ui'
+                local name2 = name1 .. '.drawer'
                 if key2 == 'border' then
                     util.checkBorder(value2, name2 .. '.border')
                 elseif key2 == 'position' then
@@ -189,13 +185,24 @@ options.validateOptions = function(opts)
                     util.checkType(value2, name2 .. '.detailPane', 'boolean')
                 else
                     error(
-                        '"opts.ui.'
+                        '"opts.drawer.'
                             .. key2
                             .. '" '
                             .. constants.invalidOptionMessage
                     )
                 end
             end
+        elseif key1 == 'manageJumps' then
+            util.checkType(value1, name1 .. '.manageJumps', 'boolean')
+        elseif key1 == 'respectHLSearch' then
+            util.checkType(value1, name1 .. '.respectHLSearch', 'boolean')
+        -- the old names for chooser and drawer, caught here rather than left
+        -- to the catch-all below so that an upgrade is told what to write
+        -- instead of only that the option is not one this plugin has
+        elseif key1 == 'prompt' then
+            error('"opts.prompt" is now "opts.chooser" for Cash.nvim')
+        elseif key1 == 'ui' then
+            error('"opts.ui" is now "opts.drawer" for Cash.nvim')
         else
             error('"opts.' .. key1 .. '" ' .. constants.invalidOptionMessage)
         end

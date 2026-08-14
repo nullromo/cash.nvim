@@ -734,27 +734,27 @@ return function(h)
 
     do
         h.check(
-            'an unknown ui option is rejected',
-            not pcall(cash.setup, { ui = { bogus = true } })
+            'an unknown drawer option is rejected',
+            not pcall(cash.setup, { drawer = { bogus = true } })
         )
         h.check(
             'a border of the wrong type is rejected',
-            not pcall(cash.setup, { ui = { border = 7 } })
+            not pcall(cash.setup, { drawer = { border = 7 } })
         )
         h.check(
             'a named border is accepted',
-            pcall(cash.setup, { ui = { border = 'single' } })
+            pcall(cash.setup, { drawer = { border = 'single' } })
         )
         h.check(
             'detailPane must be a boolean',
-            not pcall(cash.setup, { ui = { detailPane = 'yes' } })
+            not pcall(cash.setup, { drawer = { detailPane = 'yes' } })
         )
 
-        -- ui.detailPane decides only whether it is already open; ? still
+        -- drawer.detailPane decides only whether it is already open; ? still
         -- toggles it either way
         local columns = vim.o.columns
         vim.o.columns = 120
-        fresh({ ui = { detailPane = true } })
+        fresh({ drawer = { detailPane = true } })
         vim.cmd('Cash')
         h.check('detailPane = true opens it with the drawer', ui.isOpenPane())
         press('q')

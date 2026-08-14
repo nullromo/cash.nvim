@@ -67,7 +67,7 @@ registers in their own colors, so you can see which number is the one you want.
 ╰────────────────────────────────────────╯
 ```
 
-The look of the chooser can be customized via the `prompt.style` option.
+The look of the chooser can be customized via the `chooser.style` option.
 
 Once you change cash registers, the search highlighting of the old cash register
 will remain on the screen. You can then perform a new search independent of the
@@ -153,7 +153,7 @@ provides more details about the highlighted cash register.
 - `matching window IDs` lists the windows in which that cash register's pattern
   actually occurs.
 
-Set `ui.detailPane = true` to have the detail pane always appear with the
+Set `drawer.detailPane = true` to have the detail pane always appear with the
 drawer.
 
 _Note: The detail pane appears next to the drawer, so it needs a window at least
@@ -221,6 +221,17 @@ need, the `centerAfterSearch` option already does that for you.
     -- center the window after every search jump: /, *, #, n, N, and switching
     -- to another cash register
     centerAfterSearch = true,
+    -- customize the cash register chooser that ? opens
+    chooser = {
+        -- 'grid', 'strip' or 'none'
+        style = 'grid',
+        -- where on screen the chooser appears ('center', 'bottom-right',
+        -- 'bottom', 'bottom-left', 'left', 'top-left', 'top', 'top-right', or
+        -- 'right')
+        position = 'center',
+        -- the chooser's border, in any form nvim_open_win accepts
+        border = 'rounded',
+    },
     -- color settings
     colors = {
         -- default colors for foreground and background (used for highlight
@@ -244,25 +255,8 @@ need, the `centerAfterSearch` option already does that for you.
     -- next occurrence. Vim will jump by default; this plugin disables the jump
     -- by default
     disableStarPoundJump = true,
-    -- let this plugin own n and N, so that they can jump between the matches
-    -- of every cash register in the search set
-    manageJumps = true,
-    -- customize the cash register chooser that ? opens
-    prompt = {
-        -- 'grid', 'strip' or 'none'
-        style = 'grid',
-        -- where on screen the chooser appears ('center', 'bottom-right',
-        -- 'bottom', 'bottom-left', 'left', 'top-left', 'top', 'top-right', or
-        -- 'right')
-        position = 'center',
-        -- the chooser's border, in any form nvim_open_win accepts
-        border = 'rounded',
-    },
-    -- leave vim's hlsearch setting alone. This plugin overrides hlsearch by
-    -- default
-    respectHLSearch = false,
     -- the cash drawer, which :Cash opens
-    ui = {
+    drawer = {
         -- where on screen the drawer appears ('center', 'bottom-right',
         -- 'bottom', 'bottom-left', 'left', 'top-left', 'top', 'top-right', or
         -- 'right')
@@ -272,6 +266,12 @@ need, the `centerAfterSearch` option already does that for you.
         -- whether the detail pane is already open when the drawer appears
         detailPane = false,
     },
+    -- let this plugin own n and N, so that they can jump between the matches
+    -- of every cash register in the search set
+    manageJumps = true,
+    -- leave vim's hlsearch setting alone. This plugin overrides hlsearch by
+    -- default
+    respectHLSearch = false,
 }
 ```
 
@@ -286,10 +286,10 @@ need, the `centerAfterSearch` option already does that for you.
 | `manageJumps`                             | boolean                                        | `true`      | Cash.nvim maps <kbd>n</kbd> and <kbd>N</kbd> so that they can jump between the matches of every cash register in the search set. With only one cash register in the search set, the mapping uses Vim's default behavior, so nothing changes until you turn `includeInSearch` on for more than one cash register. Set this to `false` to leave the keys alone, which also turns `includeInSearch` into a no-op. |
 | `respectHLSearch`                         | boolean                                        | `false`     | In order to enable search highlighting for the current search, you need to enable the `hlsearch` Vim option. Cash.nvim does this automatically, but if you want your `hlsearch` setting to be left as-is, then you can set this option to `true`.                                                                                                                                                              |
 | `autoNoHighlight`                         | boolean                                        | `false`     | Clear every cash register's highlighting as soon as the cursor moves. The cursor movement made by the search itself does not count. Switchable with `:Cash autohide`.                                                                                                                                                                                                                                          |
-| `prompt.style`                            | `'grid'`, `'strip'` or `'none'`                | `'grid'`    | What the <kbd>?</kbd> chooser looks like. `'grid'` lays the registers out like a numpad and shows what each one holds; `'strip'` is one line of numbers; `'none'` turns the chooser popup off.                                                                                                                                                                                                                 |
-| `prompt.position` and `ui.position`       | string                                         | `'center'`  | Where the chooser and the cash drawer appear: `'top-left'`, `'top'`, `'top-right'`, `'left'`, `'center'`, `'right'`, `'bottom-left'`, `'bottom'` or `'bottom-right'`.                                                                                                                                                                                                                                          |
-| `ui.detailPane`                           | boolean                                        | `false`     | Whether the drawer's detail pane is already open when it appears. Needs a window at least 102 columns wide to function.                                                                                                                                                                                                                                                                                        |
-| `prompt.border` and `ui.border`           | string or table                                | `'rounded'` | Popup border settings for the chooser and drawer, in any form `nvim_open_win` accepts.                                                                                                                                                                                                                                                                                                                         |
+| `chooser.style`                           | `'grid'`, `'strip'` or `'none'`                | `'grid'`    | What the <kbd>?</kbd> chooser looks like. `'grid'` lays the registers out like a numpad and shows what each one holds; `'strip'` is one line of numbers; `'none'` turns the chooser popup off.                                                                                                                                                                                                                 |
+| `chooser.position` and `drawer.position`  | string                                         | `'center'`  | Where the chooser and the cash drawer appear: `'top-left'`, `'top'`, `'top-right'`, `'left'`, `'center'`, `'right'`, `'bottom-left'`, `'bottom'` or `'bottom-right'`.                                                                                                                                                                                                                                          |
+| `drawer.detailPane`                       | boolean                                        | `false`     | Whether the drawer's detail pane is already open when it appears. Needs a window at least 102 columns wide to function.                                                                                                                                                                                                                                                                                        |
+| `chooser.border` and `drawer.border`      | string or table                                | `'rounded'` | Popup border settings for the chooser and drawer, in any form `nvim_open_win` accepts.                                                                                                                                                                                                                                                                                                                         |
 
 ## 💴 Other Tips
 

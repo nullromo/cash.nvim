@@ -57,7 +57,7 @@ keymaps.setUpKeymaps = function(cash)
     -- <number>-th search pattern
     vim.keymap.set('n', '?', function()
         -- the chooser shows which number is which color, so that the digit to
-        -- press is on screen rather than in the user's memory. prompt.style =
+        -- press is on screen rather than in the user's memory. chooser.style =
         -- 'none' asks with a message instead, as this always used to
         local index = ui.chooseRegister(cash)
 

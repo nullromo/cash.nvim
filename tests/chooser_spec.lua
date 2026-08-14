@@ -107,11 +107,11 @@ return function(h)
 
         local placements = {}
         for _, position in ipairs(require('cash.constants').positions) do
-            cash.opts.prompt.position = position
+            cash.opts.chooser.position = position
             local _, config = chooserLines('strip')
             placements[position] = { config.row, config.col }
         end
-        cash.opts.prompt.position = 'center'
+        cash.opts.chooser.position = 'center'
 
         h.check(
             'top-left goes to the corner',
@@ -141,11 +141,11 @@ return function(h)
 
         h.check(
             'an unknown position is rejected at setup',
-            not pcall(cash.setup, { prompt = { position = 'middle' } })
+            not pcall(cash.setup, { chooser = { position = 'middle' } })
         )
         h.check(
             'and an unknown style too',
-            not pcall(cash.setup, { prompt = { style = 'fancy' } })
+            not pcall(cash.setup, { chooser = { style = 'fancy' } })
         )
     end
 
@@ -156,7 +156,10 @@ return function(h)
     do
         -- two popups, two borders. Sharing one would mean the drawer and the
         -- chooser could never be told apart at a glance
-        fresh({ prompt = { border = 'double' }, ui = { border = 'single' } })
+        fresh({
+            chooser = { border = 'double' },
+            drawer = { border = 'single' },
+        })
 
         local window = ui.openChooser(cash, 'strip')
         local chooserBorder = vim.api.nvim_win_get_config(window).border[1]
@@ -169,26 +172,26 @@ return function(h)
         ui.close()
 
         h.check(
-            'the chooser uses prompt.border',
+            'the chooser uses chooser.border',
             chooserBorder == '╔',
             'got [' .. tostring(chooserBorder) .. ']'
         )
         h.check(
-            'and the drawer keeps ui.border',
+            'and the drawer keeps drawer.border',
             drawerBorder == '┌',
             'got [' .. tostring(drawerBorder) .. ']'
         )
 
         h.check(
             'a border of the wrong type is rejected',
-            not pcall(cash.setup, { prompt = { border = 7 } })
+            not pcall(cash.setup, { chooser = { border = 7 } })
         )
 
         fresh()
         h.check(
             'and it defaults to rounded like the drawer',
-            cash.opts.prompt.border == 'rounded',
-            'got [' .. tostring(cash.opts.prompt.border) .. ']'
+            cash.opts.chooser.border == 'rounded',
+            'got [' .. tostring(cash.opts.chooser.border) .. ']'
         )
     end
 

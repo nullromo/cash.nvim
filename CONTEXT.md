@@ -194,7 +194,7 @@ The selected cash register has no match of its own — it is drawn by Vim's
 is what accounts for that, rather than a sentence explaining it.
 
 With the pane open the drawer and the pane are placed as one block, so that
-`ui.position` still positions what the user is looking at rather than
+`drawer.position` still positions what the user is looking at rather than
 positioning the drawer and letting the pane hang off the side.
 
 ## The chooser

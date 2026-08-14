@@ -220,8 +220,8 @@ Including or excluding a cash register changes where |n| goes, not what is
 highlighted.
 
 This option can be toggled from the cash drawer using `<Space>`, from the
-command line using `:Cash include`, `:Cash exclude` and `:Cash toggle`, or from
-Lua: >lua
+command line using `:Cash include`, `:Cash exclude` and `:Cash toggle`, or
+from Lua: >lua
 
     require('cash').setIncludeInSearch(2, true)
     require('cash').toggleIncludeInSearch(2)
@@ -248,11 +248,11 @@ The chooser looks like this: >
 <
 The `▸` marks the working cash register, and `·` marks an empty one.
 
-The `prompt.style` setting determines what the looks like: `'grid'` lays the
+The `chooser.style` setting determines what the looks like: `'grid'` lays the
 nine cash registers out in a grid and shows what each one holds, `'strip'`
 shows a single line of numbers in their colors, and `'none'` turns the popup
-off and asks with a message on the command line. `prompt.position` and
-`prompt.border` position the popup and frame it, respectively. See
+off and asks with a message on the command line. `chooser.position` and
+`chooser.border` position the popup and frame it, respectively. See
 |cash-configuration| for option details.
 
 Selecting a cash register also searches for its pattern, so the cursor moves
@@ -362,7 +362,7 @@ that does not fit on its row. It follows the cursor. >
 `matching window IDs`   The IDs of the windows in which this register's
 			pattern actually occurs.
 
-Set `ui.detailPane` to `true` to have the pane open with the drawer every
+Set `drawer.detailPane` to `true` to have the pane open with the drawer every
 time.
 
 If the Vim editor is too narrow, attempting to open the details pane reports
@@ -466,6 +466,11 @@ Defaults: >lua
     require('cash').setup({
         autoNoHighlight = false,
         centerAfterSearch = true,
+        chooser = {
+            style = 'grid',
+            position = 'center',
+            border = 'rounded',
+        },
         colors = {
             defaultBG = '#FF9E3B',
             defaultFG = '#16161D',
@@ -482,18 +487,13 @@ Defaults: >lua
             },
         },
         disableStarPoundJump = true,
-        manageJumps = true,
-        prompt = {
-            style = 'grid',
-            position = 'center',
+        drawer = {
             border = 'rounded',
-        },
-        respectHLSearch = false,
-        ui = {
             position = 'center',
-            border = 'rounded',
             detailPane = false,
         },
+        manageJumps = true,
+        respectHLSearch = false,
     })
 <
 ------------------------------------------------------------------------------
@@ -511,6 +511,30 @@ centerAfterSearch                                     *cash-centerAfterSearch*
     pressed. This covers every way of arriving at one: |/|, |star|, |#|, a
     switch to another cash register, |n|, and |N|. A search that finds nothing
     leaves the window where it was.
+
+chooser.style                                             *cash-chooser.style*
+                        `'grid'`, `'strip'` or `'none'`, default `'grid'`
+
+    What the `?` chooser looks like. `'grid'` lays the cash registers out in a
+    grid and shows their contents, `'strip'` is one line of numbers in their
+    colors, and `'none'` turns the popup off and asks with a message on the
+    command line. See |cash-chooser|.
+
+chooser.position                                       *cash-chooser.position*
+drawer.position                                         *cash-drawer.position*
+                        string, default `'center'`
+
+    Where the chooser and the cash drawer appear on screen. One of
+    `'top-left'`, `'top'`, `'top-right'`, `'left'`, `'center'`, `'right'`,
+    `'bottom-left'`, `'bottom'` or `'bottom-right'`. The command line and the
+    status line are never covered.
+
+chooser.border                                           *cash-chooser.border*
+drawer.border                                             *cash-drawer.border*
+                        string or table, default `'rounded'`
+
+    The border drawn around the chooser and the cash drawer, in any form
+    |nvim_open_win()| accepts.
 
 colors.defaultBG                                       *cash-colors.defaultBG*
 colors.defaultFG                                       *cash-colors.defaultFG*
@@ -536,6 +560,13 @@ disableStarPoundJump                               *cash-disableStarPoundJump*
     |#|. Cash.nvim stays put instead. Set this to `false` to get Vim's
     behavior back. A count (`3*`) jumps either way.
 
+drawer.detailPane                                     *cash-drawer.detailPane*
+                        boolean, default `false`
+
+    Whether the drawer's detail pane is already open when the drawer appears.
+    Pressing `?` from the drawer toggles it either way. Needs a window at
+    least 102 columns wide. See |cash-detail-pane|.
+
 manageJumps                                                 *cash-manageJumps*
                         boolean, default `true`
 
@@ -547,42 +578,12 @@ manageJumps                                                 *cash-manageJumps*
     Set this to `false` to leave the keys alone entirely, at the cost of
     |cash-include-in-search| doing nothing.
 
-prompt.style                                               *cash-prompt.style*
-                        `'grid'`, `'strip'` or `'none'`, default `'grid'`
-
-    What the `?` chooser looks like. `'grid'` lays the cash registers out in a
-    grid and shows their contents, `'strip'` is one line of numbers in their
-    colors, and `'none'` turns the popup off and asks with a message on the
-    command line. See |cash-chooser|.
-
-prompt.position                                         *cash-prompt.position*
-ui.position                                                 *cash-ui.position*
-                        string, default `'center'`
-
-    Where the chooser and the cash drawer appear on screen. One of
-    `'top-left'`, `'top'`, `'top-right'`, `'left'`, `'center'`, `'right'`,
-    `'bottom-left'`, `'bottom'` or `'bottom-right'`. The command line and the
-    status line are never covered.
-
-prompt.border                                             *cash-prompt.border*
-ui.border                                                     *cash-ui.border*
-                        string or table, default `'rounded'`
-
-    The border drawn around the chooser and the cash drawer, in any form
-    |nvim_open_win()| accepts.
-
 respectHLSearch                                         *cash-respectHLSearch*
                         boolean, default `false`
 
     Cash.nvim switches 'hlsearch' on during setup, since with it off there is
     nothing to see. Set this to `true` to have your own setting left alone.
 
-ui.detailPane                                             *cash-ui.detailPane*
-                        boolean, default `false`
-
-    Whether the drawer's detail pane is already open when the drawer appears.
-    Pressing `?` from the drawer toggles it either way. Needs a window at
-    least 102 columns wide. See |cash-detail-pane|.
 ------------------------------------------------------------------------------
 
 

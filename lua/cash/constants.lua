@@ -31,7 +31,7 @@ constants.positions = {
 }
 
 -- what the ? chooser can look like
-constants.promptStyles = { 'grid', 'strip', 'none' }
+constants.chooserStyles = { 'grid', 'strip', 'none' }
 
 constants.invalidOptionMessage = 'is not a valid option for Cash.nvim'
 

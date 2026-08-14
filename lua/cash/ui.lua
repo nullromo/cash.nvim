@@ -543,7 +543,7 @@ paneRender = function()
     vim.api.nvim_win_set_height(drawer.pane, #rows)
 end
 
--- puts the drawer where ui.position asks for, and the pane beside it.
+-- puts the drawer where drawer.position asks for, and the pane beside it.
 --
 -- With the pane open the two are placed as one block, so that 'center' still
 -- centers what the user is actually looking at rather than centering the
@@ -552,7 +552,7 @@ local placeWindows = function()
     local cash = drawer.cash
     local paneRoom = drawer.pane ~= nil and (PANE_WIDTH + 2) or 0
     local where =
-        placement(cash.opts.ui.position, WIDTH + paneRoom, drawer.height)
+        placement(cash.opts.drawer.position, WIDTH + paneRoom, drawer.height)
 
     vim.api.nvim_win_set_config(drawer.window, {
         relative = 'editor',
@@ -620,7 +620,7 @@ ui.openPane = function()
         row = 0,
         col = 0,
         style = 'minimal',
-        border = cash.opts.ui.border,
+        border = cash.opts.drawer.border,
         title = '─ Details ',
         title_pos = 'left',
         focusable = false,
@@ -914,7 +914,7 @@ end
 -- looked at without a keypress blocking the loop, which is also how it is
 -- tested
 ui.openChooser = function(cash, style)
-    local rows = chooserRows(cash, style or cash.opts.prompt.style)
+    local rows = chooserRows(cash, style or cash.opts.chooser.style)
 
     local width = 0
     local text = {}
@@ -942,7 +942,7 @@ ui.openChooser = function(cash, style)
         end
     end
 
-    local where = placement(cash.opts.prompt.position, width, #rows)
+    local where = placement(cash.opts.chooser.position, width, #rows)
     local window = vim.api.nvim_open_win(buffer, false, {
         relative = 'editor',
         width = width,
@@ -950,7 +950,7 @@ ui.openChooser = function(cash, style)
         row = where.row,
         col = where.col,
         style = 'minimal',
-        border = cash.opts.prompt.border,
+        border = cash.opts.chooser.border,
         -- the leading dash continues the border rather than sitting apart from
         -- it, which needs the title drawn in the border's own colors
         title = '─ Choose a cash register ',
@@ -977,7 +977,7 @@ end
 ui.chooseRegister = function(cash)
     local window = nil
 
-    if cash.opts.prompt.style == 'none' then
+    if cash.opts.chooser.style == 'none' then
         vim.notify('Enter a digit to choose a cash register')
     else
         window = ui.openChooser(cash)
@@ -1030,7 +1030,7 @@ ui.open = function(cash)
     -- the legend, the two rules, the search set line and the key hints
     local height = 1 + 9 + #LEGEND + 3 + #FOOTER
 
-    local where = placement(cash.opts.ui.position, WIDTH, height)
+    local where = placement(cash.opts.drawer.position, WIDTH, height)
 
     local window = vim.api.nvim_open_win(buffer, true, {
         relative = 'editor',
@@ -1039,7 +1039,7 @@ ui.open = function(cash)
         row = where.row,
         col = where.col,
         style = 'minimal',
-        border = cash.opts.ui.border,
+        border = cash.opts.drawer.border,
         -- the leading dash continues the border rather than sitting apart
         -- from it, which needs the title drawn in the border's own colors
         title = '─ Cash.nvim Registers ',
@@ -1109,7 +1109,7 @@ ui.open = function(cash)
     -- stays dark, and the preview would have nothing to preview
     cash.showHighlighting()
 
-    if cash.opts.ui.detailPane then
+    if cash.opts.drawer.detailPane then
         ui.openPane()
     end
 
