@@ -1,5 +1,6 @@
 local highlights = require('cash.highlights')
 local jump = require('cash.jump')
+local persist = require('cash.persist')
 local util = require('cash.util')
 
 local CashModule = {}
@@ -56,8 +57,20 @@ CashModule.setSearch = function(searchString)
         searchString
 end
 
+-- what the search register held just before initializeData last cleared it.
+--
+-- A fresh set of cash registers is empty, and the search register mirrors the
+-- working one, so initializeData empties the search register too. That throws
+-- away the one thing a restore needs to look at: whether anything had set the
+-- search register before setup ran. It only matters when setup runs after
+-- startup rather than during it -- which is what a plugin manager loading this
+-- plugin on an event gives -- because there, shada has already put the search
+-- register back and initializeData is about to write over it
+local searchRegisterBeforeSetup = ''
+
 -- initializes the state of the module
 CashModule.initializeData = function()
+    searchRegisterBeforeSetup = vim.fn.getreg('/')
     CashModule.state = generateDefaultState()
     CashModule.setSearch('')
 end
@@ -210,6 +223,112 @@ CashModule.previousMatch = function()
     jump.go(CashModule, false)
 end
 
+-- whether the stored cash registers have been read this session.
+--
+-- Set once restoreCashRegisters has run, whether or not it found anything, and
+-- never cleared again -- not even by initializeData, so that emptying the cash
+-- registers with :Cash reset and leaving still saves the empty drawer the user
+-- asked for
+CashModule.restoreHasRun = false
+
+-- hands the cash registers to shada, for the next neovim to pick up.
+--
+-- Called from VimLeavePre, which is the last moment that works. Shada collects
+-- the global variables it is about to write before VimLeave runs, so a value
+-- set from VimLeave is thrown away without a word -- which looks exactly like
+-- persistence not being implemented at all
+CashModule.saveCashRegisters = function()
+    if not CashModule.opts.persistCashRegisters then
+        return
+    end
+
+    -- a neovim that never got as far as restoring has nothing to say about the
+    -- cash registers, and must not answer for them. Quitting before VimEnter is
+    -- an ordinary thing to do -- nvim --headless "+Lazy! sync" +qa is the
+    -- shape of it, and every scripted nvim that loads the user's config and
+    -- exits during startup is the same -- and each one of those would otherwise
+    -- write its own empty drawer over the one the user left behind
+    if not CashModule.restoreHasRun then
+        return
+    end
+
+    persist.save(CashModule.state)
+end
+
+-- puts back the cash registers the last neovim left behind.
+--
+-- This cannot happen in setup. The shada file is read after init.lua has run,
+-- and that read overwrites whatever the variable held, so at setup time there
+-- is either nothing there or a value about to be replaced. VimEnter is the
+-- first moment the stored cash registers are really there -- and setup itself
+-- can run later than that, under a plugin manager that loads this plugin on an
+-- event, which is why the caller checks.
+--
+-- searchRegister is what the search register held before setup touched it. It
+-- is only passed by the caller that runs after startup, where initializeData
+-- has already cleared the value this needs to see; left out, the search
+-- register is read as it stands
+CashModule.restoreCashRegisters = function(searchRegister)
+    if not CashModule.opts.persistCashRegisters then
+        return
+    end
+
+    -- from here on this session is entitled to save, even if there turns out to
+    -- be nothing stored: a first run with an empty drawer is still a session
+    -- whose cash registers are its own
+    CashModule.restoreHasRun = true
+
+    searchRegister = searchRegister or vim.fn.getreg('/')
+
+    persist.warnIfUnavailable()
+
+    local restored = persist.load()
+    if restored == nil then
+        return
+    end
+
+    CashModule.state.cashRegisters = restored.cashRegisters
+    CashModule.state.currentIndex = restored.currentIndex
+
+    local working = CashModule.state.cashRegisters[restored.currentIndex]
+
+    -- shada puts the search register back as it was, so it still agrees with
+    -- the stored one unless something set it during startup. A search is the
+    -- thing that does: nvim +/pattern and nvim -c /pattern both run before
+    -- VimEnter, and both have already moved the cursor to a match by the time
+    -- this runs. Putting the stored pattern back over that would leave the
+    -- cursor on one match while vim highlighted another, so the startup search
+    -- is taken as a search into the working cash register -- which is what it
+    -- would have been had the user typed it.
+    --
+    -- Only when the stored search register was not empty, though. Shada does
+    -- not record an empty search pattern, it just leaves the last non-empty
+    -- one in the file, so a session that ended with nothing being searched for
+    -- -- which is exactly what :Cash reset and :Cash clear leave behind -- is
+    -- met on the way back by a stale pattern from some earlier session. A
+    -- difference proves nothing there, and reading it as a startup search
+    -- would write that stale pattern into the cash register the user had just
+    -- emptied. So the cash registers win, and the stale pattern goes
+    if
+        restored.searchRegister ~= ''
+        and searchRegister ~= restored.searchRegister
+    then
+        working.pattern = searchRegister
+        vim.fn.setreg('/', searchRegister == '' and {} or searchRegister)
+    else
+        -- the search register mirrors the working cash register, so it is put
+        -- back in step with what was just restored
+        vim.fn.setreg('/', working.pattern == '' and {} or working.pattern)
+    end
+
+    -- nothing here touches v:hlsearch, so a restored cash register lights up
+    -- when the next search or n turns highlighting on, and not before. That is
+    -- what vim does with the search pattern it restores, and it falls out of
+    -- cash register highlighting following v:hlsearch rather than being a case
+    -- handled here
+    CashModule.updateHighlights()
+end
+
 -- clear all searches and start back at index 1
 CashModule.resetCashRegisters = function()
     -- empty every cash register and go back to the first one
@@ -291,6 +410,30 @@ CashModule.setUpAutocmds = function()
             CashModule.updateHighlights()
         end,
     })
+
+    -- the cash registers go out on the way down, and shada writes them moments
+    -- later. This is the same promise vim makes for the search pattern it
+    -- restores: a clean exit keeps them, and a crash does not
+    vim.api.nvim_create_autocmd('VimLeavePre', {
+        group = group,
+        callback = CashModule.saveCashRegisters,
+    })
+
+    -- and come back at VimEnter, which is the first moment shada has been
+    -- read. Setup can run after that moment rather than before it, when a
+    -- plugin manager loads this plugin on an event, and then the autocmd would
+    -- never fire -- so the answer is asked for rather than assumed
+    if vim.v.vim_did_enter == 1 then
+        CashModule.restoreCashRegisters(searchRegisterBeforeSetup)
+    else
+        vim.api.nvim_create_autocmd('VimEnter', {
+            group = group,
+            once = true,
+            callback = function()
+                CashModule.restoreCashRegisters()
+            end,
+        })
+    end
 end
 
 return CashModule

@@ -202,6 +202,46 @@ compile. Such a register simply highlights nothing and is skipped by |n| and
 |N|. In this case, Vim has already complained about the search itself, so
 nothing complains twice. The detail pane says `vim cannot compile` for it.
 
+PERSISTENCE                                                *cash-persistence*
+
+Vanilla Vim remembers your last search pattern from one session to the next,
+in the |shada| file. Similarly, Cash.nvim remembers all nine cash registers.
+Quit, start Neovim again, and all nine patterns, their include-in-search
+values, and the working cash register are all kept as you left them.
+
+Nothing is highlighted straight away. A restored cash register lights up when
+the next search or the next |n| turns highlighting on, and not before, which
+is what Vim already does with the search pattern it restores. See
+|cash-highlighting|.
+
+The cash registers are written on the way out, so a clean exit keeps them and
+a crash does not. This is the same thing Vim does for |quote_/| and the
+search history.
+
+There is one copy of the saved memory shared by every Neovim instance on the
+machine, as with the search history. Starting Neovim in another project gives
+you back the cash registers you last quit any instance of Neovim with.
+
+                                                              *cash-CASH_NVIM*
+The saved data travels in the global variable `g:CASH_NVIM`, which |shada|
+contains only when 'shada' has its `!` flag. That flag is part of Neovim's
+default 'shada' settings, so this needs no setup; if you have taken it out,
+Cash.nvim says so at startup rather than failing quietly. To look at what is
+stored, or to throw it away: >vim
+
+    :echo g:CASH_NVIM
+    :unlet g:CASH_NVIM
+<
+Set `persistCashRegisters` to `false` to start every session with nine empty
+cash registers. See |cash-persistCashRegisters|.
+
+A search made during startup, as `nvim +/pattern` does, has already moved the
+cursor to its match by the time the cash registers come back. That pattern
+wins, and is taken as a search into the working cash register, so the cursor
+and the highlighting agree. The exception is a session following a `:Cash
+reset`, where that search is dropped: |shada| does not record an empty search
+pattern, so there is no telling it apart from a leftover one.
+
 
 ==============================================================================
 7. INCLUDE IN SEARCH                                  *cash-include-in-search*
@@ -493,6 +533,7 @@ Defaults: >lua
             detailPane = false,
         },
         manageJumps = true,
+        persistCashRegisters = true,
         respectHLSearch = false,
     })
 <
@@ -578,6 +619,17 @@ manageJumps                                                 *cash-manageJumps*
     Set this to `false` to leave the keys alone entirely, at the cost of
     |cash-include-in-search| doing nothing.
 
+persistCashRegisters                               *cash-persistCashRegisters*
+                        boolean, default `true`
+
+    Remember the plugin's state from one Neovim instance to the next via Vim's
+    |shada| file. Vim already does this with |quote_/| and the search history
+    by default. All nine search patterns, their include-in-search values, and
+    the working cash register all come back.
+
+    Set this to `false` to start every session with nine empty cash registers.
+    See |cash-persistence|.
+
 respectHLSearch                                         *cash-respectHLSearch*
                         boolean, default `false`
 
@@ -628,6 +680,25 @@ cash.resetCashRegisters()                          *cash.resetCashRegisters()*
 
     Empty all nine cash registers, clear |quote_/| and go back to working in
     cash register 1.
+
+cash.saveCashRegisters()                          *cash.saveCashRegisters()*
+
+    Put the cash registers into `g:CASH_NVIM`, where |shada| picks them up.
+    Cash.nvim does this on the way out, so this is only needed to capture them
+    mid-session, ahead of a |:wshada|: >vim
+
+        :lua require('cash').saveCashRegisters()
+        :wshada
+<
+    Does nothing when `persistCashRegisters` is `false`, and does nothing
+    before the cash registers have been put back. See |cash-persistence|.
+
+cash.restoreCashRegisters()                    *cash.restoreCashRegisters()*
+
+    Put back the cash registers `g:CASH_NVIM` is holding. Cash.nvim does this
+    once, as soon as |shada| has been read, so this is only needed after
+    changing `g:CASH_NVIM` by hand. A stored value this version does not
+    recognize is ignored rather than half-read.
 
 cash.showHighlighting()                              *cash.showHighlighting()*
 

@@ -65,6 +65,12 @@ options.defaultOptions = {
     -- exactly as they always did. Set this to false to leave them alone
     -- entirely, at the cost of include-in-search doing nothing
     manageJumps = true,
+    -- carry the cash registers from one neovim to the next in the shada file,
+    -- as vim already does with the search pattern and the search history. The
+    -- nine patterns, their include-in-search switches and the working cash
+    -- register are all restored. Needs the ! flag in 'shada', which is there by
+    -- default; without it, this says so once and does nothing
+    persistCashRegisters = true,
     -- leave vim's hlsearch setting alone. This plugin overrides hlsearch by
     -- default
     respectHLSearch = false,
@@ -194,6 +200,8 @@ options.validateOptions = function(opts)
             end
         elseif key1 == 'manageJumps' then
             util.checkType(value1, name1 .. '.manageJumps', 'boolean')
+        elseif key1 == 'persistCashRegisters' then
+            util.checkType(value1, name1 .. '.persistCashRegisters', 'boolean')
         elseif key1 == 'respectHLSearch' then
             util.checkType(value1, name1 .. '.respectHLSearch', 'boolean')
         -- the old names for chooser and drawer, caught here rather than left

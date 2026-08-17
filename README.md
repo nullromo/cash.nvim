@@ -184,14 +184,38 @@ overridden in the search pattern as normal using `\c` or `\C` (see `:help /\c`).
 ### Clear Cash Registers
 
 To clear the contents of the working cash register, use `:Cash clear` (or the
-`require('cash').clearCashRegister()` function). This will also set Vim's
-search to an empty string. Pass a number, as in `:Cash clear 3`, to empty a
-different cash register instead.
+`require('cash').clearCashRegister()` function). This will also set Vim's search
+to an empty string. Pass a number, as in `:Cash clear 3`, to empty a different
+cash register instead.
 
 To clear all cash registers and reset the plugin to its initial state, use
 `:Cash reset` (or the `require('cash').resetCashRegisters()` function). This
 will set Vim's search register to an empty string and clear the contents of all
 cash registers.
+
+### Persistence
+
+Vim remembers your last search pattern from one session to the next, in the
+[shada](https://neovim.io/doc/user/starting.html#shada) file. Similarly,
+Cash.nvim remembers all nine cash registers. If you quit and start Neovim again,
+all your cash registers will come back the way you left them.
+
+Nothing is highlighted straight away. A restored cash register lights up when
+your next search or your next <kbd>n</kbd> turns highlighting on, and not
+before. This is exactly what Vim already does with the search pattern it
+restores.
+
+A few things worth knowing:
+
+- The plugin state is written on the way out, so a clean exit of Neovim keeps
+  them and a crash does not. This is the same thing Vim does for `@/` and your
+  search history.
+- There is one global copy of the plugin state shared by every instance of
+  Neovim on the machine. Starting Neovim in another project gives you the cash
+  registers you last quit with.
+
+Set `persistCashRegisters = false` to start every session with nine empty cash
+registers instead.
 
 ## 💶 Compatibility Issues / Warnings
 
@@ -269,6 +293,9 @@ need, the `centerAfterSearch` option already does that for you.
     -- let this plugin own n and N, so that they can jump between the matches
     -- of every cash register in the search set
     manageJumps = true,
+    -- carry the cash registers from one Neovim to the next in the shada file,
+    -- the way Vim already remembers your last search
+    persistCashRegisters = true,
     -- leave vim's hlsearch setting alone. This plugin overrides hlsearch by
     -- default
     respectHLSearch = false,
@@ -284,6 +311,7 @@ need, the `centerAfterSearch` option already does that for you.
 | `colors.highlightColors`                  | list of 9 `{ bg = string, fg = string }` items | see above   | This is a table of 9 values, each with a `bg` and `fg` field. These define the highlight colors for each of the 9 available cash registers. If a `bg` or `fg` value is not specified in one of these entries, then the `colors.defaultBG`/`colors.defaultFG` color will be used. Colors should be of the form `'#RRGGBB'`.                                                                                     |
 | `disableStarPoundJump`                    | boolean                                        | `true`      | By default, Vim will jump you to the next occurrence of a search term if you initiate the search using <kbd>\*</kbd> or <kbd>#</kbd>. Cash.nvim disables this by default. You can preserve Vim's default behavior by setting this option to `false`.                                                                                                                                                           |
 | `manageJumps`                             | boolean                                        | `true`      | Cash.nvim maps <kbd>n</kbd> and <kbd>N</kbd> so that they can jump between the matches of every cash register in the search set. With only one cash register in the search set, the mapping uses Vim's default behavior, so nothing changes until you turn `includeInSearch` on for more than one cash register. Set this to `false` to leave the keys alone, which also turns `includeInSearch` into a no-op. |
+| `persistCashRegisters`                    | boolean                                        | `true`      | Carry the cash registers from one Neovim to the next in the [shada](#persistence) file, the way Vim already remembers your last search. All nine search patterns, their `includeInSearch` values, and the working cash register all come back. Set this to `false` to start every session with nine empty cash registers.                                                                                      |
 | `respectHLSearch`                         | boolean                                        | `false`     | In order to enable search highlighting for the current search, you need to enable the `hlsearch` Vim option. Cash.nvim does this automatically, but if you want your `hlsearch` setting to be left as-is, then you can set this option to `true`.                                                                                                                                                              |
 | `autoNoHighlight`                         | boolean                                        | `false`     | Clear every cash register's highlighting as soon as the cursor moves. The cursor movement made by the search itself does not count. Switchable with `:Cash autohide`.                                                                                                                                                                                                                                          |
 | `chooser.style`                           | `'grid'`, `'strip'` or `'none'`                | `'grid'`    | What the <kbd>?</kbd> chooser looks like. `'grid'` lays the registers out like a numpad and shows what each one holds; `'strip'` is one line of numbers; `'none'` turns the chooser popup off.                                                                                                                                                                                                                 |

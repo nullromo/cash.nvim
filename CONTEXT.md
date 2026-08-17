@@ -131,6 +131,90 @@ updated. Anything that can invalidate the highlights just calls it.
 In code: `highlights.update(cashRegisters, currentIndex)`, wrapped as
 `CashModule.updateHighlights()`.
 
+## Persistence
+
+Carrying the cash registers from one Neovim to the next, in `lua/cash/persist.lua`.
+
+> The nine patterns, their `includeInSearch` switches and the working cash
+> register go into `g:CASH_NVIM`, and shada does the rest.
+
+Shada carries a global variable only when its name is written in capitals with
+no lowercase letter in it — that is what the `!` flag in `'shada'` selects, and
+`!` is in Neovim's default. Everything else about the design falls out of two
+facts about **when** shada happens, both of which have been checked rather than
+assumed:
+
+- **The shada file is read after `init.lua` has run**, and that read overwrites
+  whatever the variable held. So `setup` cannot restore anything: at setup time
+  the value is either missing or about to be replaced. `VimEnter` is the first
+  moment it is really there. Setup can also run *after* `VimEnter`, under a
+  plugin manager that loads this plugin on an event, so which of the two is
+  used is decided by asking `v:vim_did_enter` rather than by assuming.
+- **Shada collects the globals it is going to write before `VimLeave` runs.** A
+  value set from `VimLeave` is dropped without a word, which looks exactly like
+  the feature not existing. `VimLeavePre` is the last moment that works.
+
+Saving only on the way out is deliberate, not a limitation left in by accident:
+it is the same promise vim makes for `@/` and the search history, so a clean
+quit keeps them and a crash does not.
+
+Because those two moments are different moments, **a save must never outrun the
+restore.** A Neovim that quits during startup never reaches `VimEnter`, so it
+never reads the drawer — but it does reach `VimLeavePre`, and it would happily
+write its own empty one over the drawer the user left behind. This is not a rare
+shape: `nvim --headless "+Lazy! sync" +qa` is exactly it, and so is every other
+scripted Neovim that loads the user's config and exits before startup finishes.
+`CashModule.restoreHasRun` is what stops it, and it is never cleared once set —
+not even by `initializeData`, so that emptying the drawer with `:Cash reset` and
+quitting still saves the empty drawer the user asked for.
+
+Two things about the restore are easy to get wrong:
+
+- **`initializeData` clears the search register**, because a fresh set of cash
+  registers is empty and the search register mirrors the working one. That
+  destroys the evidence the restore reads, which is why the value is recorded
+  in `searchRegisterBeforeSetup` first. It only bites on the after-`VimEnter`
+  path, where shada has already put the search register back and setup is about
+  to write over it — and there it is not subtle, it empties the working cash
+  register on every startup.
+- **A search made during startup has to win.** `nvim +/pattern` and `nvim -c
+  /pattern` both run after the shada read and before `VimEnter`, and both have
+  already moved the cursor. Putting the stored pattern back over that would
+  leave the cursor on one match while vim highlighted another. Telling that
+  case apart from an ordinary restore is the entire reason the search register
+  is stored alongside the cash registers: shada puts `@/` back as it was, so a
+  difference means something set it in between. The stored value is compared
+  against, never installed.
+
+  That test only holds while the stored search register is not empty.
+  **Shada does not record an empty search pattern** — it leaves the last
+  non-empty one sitting in the file — so a session that ended with nothing
+  being searched for, which is exactly what `:Cash reset` and `:Cash clear`
+  leave behind, is met on the way back by a stale pattern from some earlier
+  session. A difference proves nothing there. Read as a startup search, it puts
+  that stale pattern straight into the cash register the user had just emptied,
+  and `:Cash reset` stops surviving a restart. So the stored cash registers win
+  the ambiguous case and the stale pattern goes.
+
+  The cost is the one case both rules cannot have: `nvim +/pattern` in the
+  session after a `:Cash reset` loses its search, because there is no way to
+  tell it from the stale pattern. It is preferred over the alternative, which
+  is leaving `@/` holding something no cash register knows about — the drawer
+  would then be lying about what is on screen, and that invariant is worth more
+  than an uncommon startup search that one keypress brings back.
+
+Nothing here touches `v:hlsearch`, so a restored cash register lights up when
+the next search or `n` turns highlighting on, and not before. That is what vim
+does with the pattern it restores, and it is a consequence of `updateHighlights`
+following `v:hlsearch` rather than a case anyone handled.
+
+Everything read back out is checked. The shada file outlives any one version of
+this plugin, it can be hand-edited, and `g:CASH_NVIM` is a name anything can
+write to, so `persist.deserialize` returns nil for a shape it does not
+recognise — including a `version` from a newer Cash.nvim, which is refused
+rather than guessed at — and one malformed cash register becomes an empty one
+rather than taking the other eight with it.
+
 ## The drawer
 
 The popup `:Cash` opens. In code: `lua/cash/ui.lua`.
