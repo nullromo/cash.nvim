@@ -136,13 +136,6 @@ local announceNotFound = function(searchable)
     }, true, {})
 end
 
--- shows a failure from :normal the way vim would have, without the lua
--- traceback wrapped round it
-local echoVimError = function(err)
-    local message = tostring(err):match('(E%d+:.*)$') or tostring(err)
-    vim.api.nvim_echo({ { message, 'ErrorMsg' } }, true, {})
-end
-
 -- moves the cursor the way n does: the jump is recorded so that '' comes back
 -- here, and a fold closed over the match is opened
 local moveTo = function(position)
@@ -182,7 +175,7 @@ jump.go = function(cash, forward)
         local ok, err =
             pcall(vim.cmd, 'normal! ' .. count .. (forward and 'n' or 'N'))
         if not ok then
-            echoVimError(err)
+            util.echoVimError(err)
             return
         end
         cash.centerWindow()

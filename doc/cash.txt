@@ -47,9 +47,9 @@ and |N| move through. |n| and |N| can also be configured to move through the
 union of multiple cash registers. Press `?` followed by a digit to work in a
 different cash register.
 
-Ordinary searching is unchanged. |/|, |star|, |#|, |n|, |N|, 'hlsearch' and
-|:nohlsearch| all do what they always did—there are simply eight more searches
-on the screen than there used to be.
+Ordinary searching is unchanged. |/|, |star|, |#|, |gstar|, |g#|, |n|, |N|,
+'hlsearch' and |:nohlsearch| all do what they always did—there are simply
+eight more searches on the screen than there used to be.
 
 
 ==============================================================================
@@ -170,14 +170,14 @@ cash register and highlighted in that register's color. Searching again
 overwrites it, exactly as Vim overwrites |quote_/|. The other eight registers
 are left alone.
 
-|star| and |#| also write into the working cash register. By default they do
-not jump to the next occurrence, which is a departure from Vim; set
-`disableStarPoundJump` to `false` to get the jump back. Supplying a count
-(`3*`) always jumps, no matter what the option says.
+|star|, |#|, |gstar|, and |g#| also write into the working cash register. By
+default they do not jump to the next occurrence, which is a departure from
+Vim; set `disableStarPoundJump` to `false` to get the jump back. Supplying a
+count (`3*`) always jumps, no matter what the option says.
 
-However you arrive at a match (|/|, |star|, |#|, a switch to another cash
-register, |n|, or |N|), `centerAfterSearch` centers the window on it
-afterwards. See |cash-centerAfterSearch|.
+However you arrive at a match (|/|, |star|, |#|, |gstar|, |g#|, a switch to
+another cash register, |n|, or |N|), `centerAfterSearch` centers the window on
+it afterwards. See |cash-centerAfterSearch|.
 
 HIGHLIGHTING                                               *cash-highlighting*
 
@@ -476,11 +476,15 @@ N                       cash registers in the search set; `N` reverses the
                         direction, the way Vim's own |n| and |N| do. Only
                         created when `manageJumps` is `true`.
 
-                                                          *cash-star* *cash-#*
-*                       Normal mode. Store the word under the cursor in the
-#                       working cash register. By default the cursor does not
-                        move; see `disableStarPoundJump`. Any mapping you
-                        already had for these keys is kept and still runs.
+                                  *cash-star* *cash-#* *cash-gstar* *cash-g#*
+*                       Normal mode. Search for the word under the cursor, as
+#                       Vim does, and store the pattern in the working cash
+g*                      register. |star| and |#| match whole words only;
+g#                      |gstar| and |g#| match inside longer words too, and
+			the register records which version was used. By
+			default the cursor does not move; see
+			`disableStarPoundJump`. Any mapping you already had
+			for these keys is kept and still runs.
 
 Whenever the search set includes only the working cash register on its own,
 the `n` and `N` mappings hand straight back to Vim. Counts, search offsets,
@@ -597,9 +601,9 @@ colors.highlightColors                           *cash-colors.highlightColors*
 disableStarPoundJump                               *cash-disableStarPoundJump*
                         boolean, default `true`
 
-    Vim jumps to the next occurrence when a search is started with |star| or
-    |#|. Cash.nvim stays put instead. Set this to `false` to get Vim's
-    behavior back. A count (`3*`) jumps either way.
+    Vim jumps to the next occurrence when a search is started with |star|,
+    |#|, |gstar| or |g#|. Cash.nvim stays put instead. Set this to `false` to
+    get Vim's behavior back. A count (`3*`) jumps either way.
 
 drawer.detailPane                                     *cash-drawer.detailPane*
                         boolean, default `false`

@@ -61,6 +61,13 @@ util.resolveCase = function(pattern)
     return (vim.opt.ignorecase:get() and '\\c' or '\\C') .. pattern
 end
 
+-- shows a failure from :normal the way vim would have, without the lua
+-- traceback wrapped round it
+util.echoVimError = function(err)
+    local message = tostring(err):match('(E%d+:.*)$') or tostring(err)
+    vim.api.nvim_echo({ { message, 'ErrorMsg' } }, true, {})
+end
+
 -- true if the given value names one of the nine cash registers. Anything else
 -- is rejected rather than trusted, wherever it came from
 util.isCashRegisterIndex = function(value)

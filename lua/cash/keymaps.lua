@@ -1,18 +1,46 @@
 local ui = require('cash.ui')
+local util = require('cash.util')
 
 local keymaps = {}
 
--- adds a mapping without disturbing existing mappings
-local addKeyTrigger = function(mode, key, callback, prepend)
+-- every mapping this plugin makes says so, both so that which-key and friends
+-- have something to show and so that addKeyTrigger can recognise its own work
+local ownMapping = 'Cash.nvim: '
+
+-- adds a mapping without disturbing existing mappings.
+--
+-- runsTheKey says whether the callback does the key's own work itself. A
+-- callback that does not is followed by the key being handed back to vim, so
+-- that pressing it still does everything it used to. One that does must not be
+-- handed it as well, or the key's own action happens a second time -- which,
+-- for a key that searches, is a second search and a jump that was meant to be
+-- suppressed
+local addKeyTrigger = function(mode, key, callback, prepend, runsTheKey, desc)
     -- get the current keymap for the key
     local keymap = vim.fn.maparg(key, mode, false, true)
 
+    -- a mapping this plugin made earlier is replaced rather than wrapped.
+    -- Wrapped, a second setup would leave two of them on the key and the
+    -- search would happen twice for one keypress
+    if
+        next(keymap) ~= nil
+        and type(keymap.desc) == 'string'
+        and vim.startswith(keymap.desc, ownMapping)
+    then
+        keymap = {}
+    end
+
     -- if there is no current keymap, create a new keymap with the new callback
     if next(keymap) == nil then
+        if runsTheKey then
+            vim.keymap.set(mode, key, callback, { desc = desc })
+            return
+        end
+
         vim.keymap.set(mode, key, function()
             callback()
             return key
-        end, { expr = true })
+        end, { expr = true, desc = desc })
         return
     end
 
@@ -49,7 +77,7 @@ local addKeyTrigger = function(mode, key, callback, prepend)
             do_old_mapping()
             callback()
         end
-    end, { remap = true })
+    end, { remap = true, desc = desc })
 end
 
 keymaps.setUpKeymaps = function(cash)
@@ -70,7 +98,7 @@ keymaps.setUpKeymaps = function(cash)
         end
 
         cash.setCashRegister(index)
-    end)
+    end, { desc = ownMapping .. 'choose the working cash register' })
 
     -- run custom functions after searching. Whenever the user performs a normal
     -- search, we need to make sure to update some things
@@ -102,51 +130,88 @@ keymaps.setUpKeymaps = function(cash)
         return '<CR>'
     end, { expr = true })
 
-    -- action to run when the user presses * or # from normal mode
-    local starPoundAction = function(usingStar)
-        local afterVimsOwnJump = vim.schedule_wrap(function()
-            -- choose the key pressed based on the argument
-            local keyPressed = usingStar and '*' or '#'
+    -- what *, #, g* and g# do.
+    --
+    -- The search is run here rather than handed back to vim. Handed back, vim
+    -- searches and jumps before this plugin can say a word about it, and a
+    -- jump cannot be taken back afterwards: the view can be put where it was,
+    -- but the jumplist has an entry by then and the search has already
+    -- happened. disableStarPoundJump is a promise that the cursor stays where
+    -- it is, so the one search there is has to be this one
+    local starPoundAction = function(key)
+        return function()
+            -- read before the search, since the search is what would change
+            -- them
+            local windowView = vim.fn.winsaveview()
+            local count = vim.v.count > 0 and tostring(vim.v.count) or ''
 
-            -- set the search pattern as */# normally would
-            cash.setSearch(vim.fn.expand('<cword>'))
+            -- a count is the user naming the occurrence to go to, which is an
+            -- instruction to move whatever disableStarPoundJump says
+            local stayPut = cash.opts.disableStarPoundJump and count == ''
+
+            -- the cursor is about to move for a search, even where it is put
+            -- straight back afterwards
             cash.expectSearchMove()
 
-            -- if a count was supplied, execute */# normally and exit
-            if vim.v.count > 0 then
-                vim.cmd('normal! ' .. vim.v.count .. keyPressed)
-            else
-                -- save current window view
-                local windowView = vim.fn.winsaveview()
+            -- keepjumps only where the jump is being undone anyway: a * that
+            -- is allowed to move the cursor belongs in the jumplist, exactly
+            -- as vim's own does. The messages go the same way -- vim's "search
+            -- hit BOTTOM" is worth having when the cursor really did travel,
+            -- and is a puzzle when it did not
+            local ok, err = pcall(
+                vim.cmd,
+                (stayPut and 'silent keepjumps normal! ' or 'normal! ')
+                    .. count
+                    .. key
+            )
 
-                -- execute */# normally
-                vim.cmd('silent keepjumps normal! ' .. keyPressed)
+            -- E348 when there is no word under the cursor, which is the
+            -- ordinary way to press * by accident. Nothing has been searched
+            -- for, so the cash register is left holding what it held
+            if not ok then
+                util.echoVimError(err)
+                return
+            end
 
-                -- restore the window view
-                if windowView ~= nil and cash.opts.disableStarPoundJump then
-                    vim.fn.winrestview(windowView)
-                end
+            -- vim has just put what it searched for in the search register:
+            -- \<word\> for * and #, the bare word for g* and g#. That, rather
+            -- than the word under the cursor, is what this cash register
+            -- takes, so that switching away from it and back searches for the
+            -- same thing again. Stored as the bare word, a * search comes back
+            -- out of its own register as a g* search, matching inside other
+            -- words
+            cash.setSearch(vim.fn.getreg('/'))
+
+            -- put the cursor back where it was, if it was never meant to leave
+            if stayPut then
+                vim.fn.winrestview(windowView)
             end
 
             -- center the screen
             cash.centerWindow()
-        end)
-
-        return function()
-            -- vim's own * runs the moment this mapping hands the key back,
-            -- and it moves the cursor before the part above gets to say a
-            -- word about it. Said here, the search is expected before it
-            -- happens rather than after, which is what keeps autoNoHighlight
-            -- from reading vim's jump as the user wandering off and taking
-            -- the highlighting away again
-            cash.expectSearchMove()
-            afterVimsOwnJump()
         end
     end
 
-    -- set keymaps for * and # to update module state
-    addKeyTrigger('n', '*', starPoundAction(true), true)
-    addKeyTrigger('n', '#', starPoundAction(false), true)
+    -- set keymaps for *, #, g* and g# to update module state. The g-versions
+    -- are here for the same reason as the other two: they search, so the
+    -- working cash register has to hear about it, and so does autoNoHighlight
+    local starPoundDescriptions = {
+        ['*'] = 'the word under the cursor',
+        ['#'] = 'the word under the cursor, backwards',
+        ['g*'] = 'the word under the cursor, inside other words too',
+        ['g#'] = 'the word under the cursor, backwards, inside other words too',
+    }
+
+    for key, description in pairs(starPoundDescriptions) do
+        addKeyTrigger(
+            'n',
+            key,
+            starPoundAction(key),
+            true,
+            true,
+            ownMapping .. 'search for ' .. description
+        )
+    end
 
     -- n and N move between the matches of every cash register in the search
     -- set, not just the working one. Only normal mode is taken: in operator
@@ -157,14 +222,14 @@ keymaps.setUpKeymaps = function(cash)
             'n',
             'n',
             cash.nextMatch,
-            { desc = 'Cash.nvim: next match in the search set' }
+            { desc = ownMapping .. 'next match in the search set' }
         )
 
         vim.keymap.set(
             'n',
             'N',
             cash.previousMatch,
-            { desc = 'Cash.nvim: previous match in the search set' }
+            { desc = ownMapping .. 'previous match in the search set' }
         )
     end
 
