@@ -104,7 +104,7 @@ keymaps.setUpKeymaps = function(cash)
 
     -- action to run when the user presses * or # from normal mode
     local starPoundAction = function(usingStar)
-        return vim.schedule_wrap(function()
+        local afterVimsOwnJump = vim.schedule_wrap(function()
             -- choose the key pressed based on the argument
             local keyPressed = usingStar and '*' or '#'
 
@@ -131,6 +131,17 @@ keymaps.setUpKeymaps = function(cash)
             -- center the screen
             cash.centerWindow()
         end)
+
+        return function()
+            -- vim's own * runs the moment this mapping hands the key back,
+            -- and it moves the cursor before the part above gets to say a
+            -- word about it. Said here, the search is expected before it
+            -- happens rather than after, which is what keeps autoNoHighlight
+            -- from reading vim's jump as the user wandering off and taking
+            -- the highlighting away again
+            cash.expectSearchMove()
+            afterVimsOwnJump()
+        end
     end
 
     -- set keymaps for * and # to update module state

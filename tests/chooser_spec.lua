@@ -252,6 +252,157 @@ return function(h)
 
     ----------------------------------------------------------------------
 
+    -- lets everything scheduled so far happen
+    local function settle()
+        vim.wait(100, function()
+            return false
+        end)
+    end
+
+    -- highlighting on, and nothing expecting to move the cursor.
+    --
+    -- Storing a pattern searches for it, and a search says so in advance, so
+    -- the setup each test below shares leaves an expectation standing that
+    -- would otherwise be spent on that test's first movement -- which is the
+    -- one movement the test is about
+    local function lit()
+        settle()
+        vim.api.nvim_exec_autocmds('CursorMoved', {})
+        settle()
+        cash.showHighlighting()
+        settle()
+    end
+
+    h.group('a search outruns the clear it was racing')
+
+    -- The clear cannot happen the moment the movement is seen, because
+    -- v:hlsearch does not survive being assigned from inside an autocmd. It
+    -- waits for a schedule, and in that gap more keys get dealt with. A search
+    -- among them turns the highlighting back on and moves the cursor onto a
+    -- match -- and the clear, still on its way, used to land on top of it and
+    -- leave the cursor sitting on a match with nothing marking it. Pressing n
+    -- with any other movement in front of it flickered for exactly this reason
+    do
+        local window = fresh({ autoNoHighlight = true })
+        cash.setSearch('foo')
+        store(2, 'bar')
+        lit()
+
+        -- the user moves the cursor: the clear is now on its way
+        vim.api.nvim_exec_autocmds('CursorMoved', {})
+
+        -- and searches before it arrives
+        cash.expectSearchMove()
+        vim.api.nvim_exec_autocmds('CursorMoved', {})
+
+        vim.wait(100, function()
+            return vim.v.hlsearch == 0
+        end)
+        h.check(
+            'the search has the last word, not the clear',
+            vim.v.hlsearch == 1 and #vim.fn.getmatches(window) == 1,
+            'v:hlsearch='
+                .. vim.v.hlsearch
+                .. ' '
+                .. #vim.fn.getmatches(window)
+                .. ' matches'
+        )
+
+        -- and the next ordinary movement still clears, so nothing has been
+        -- made permanent by outrunning one clear
+        vim.api.nvim_exec_autocmds('CursorMoved', {})
+        vim.wait(200, function()
+            return vim.v.hlsearch == 0
+        end)
+        h.check(
+            'and the movement after it clears as usual',
+            vim.v.hlsearch == 0 and #vim.fn.getmatches(window) == 0,
+            'v:hlsearch='
+                .. vim.v.hlsearch
+                .. ' '
+                .. #vim.fn.getmatches(window)
+                .. ' matches'
+        )
+    end
+
+    ----------------------------------------------------------------------
+
+    h.group('a search that never moves is not held against the next move')
+
+    -- Not every search moves the cursor. One that finds nothing leaves it
+    -- where it was, and so does * with disableStarPoundJump, which is the
+    -- default. The expectation would otherwise sit there waiting, and be spent
+    -- on whatever the user did next -- so the move that should have cleared
+    -- the highlighting would be the one move that did not
+    do
+        local window = fresh({ autoNoHighlight = true })
+        cash.setSearch('foo')
+        store(2, 'bar')
+        lit()
+
+        -- a search is announced, and finds nothing: no CursorMoved follows
+        cash.expectSearchMove()
+
+        -- vim goes back to waiting for a key, which is where the expectation
+        -- is given up
+        vim.api.nvim_exec_autocmds('SafeState', {})
+
+        -- now the user really does move
+        vim.api.nvim_exec_autocmds('CursorMoved', {})
+        vim.wait(200, function()
+            return vim.v.hlsearch == 0
+        end)
+        h.check(
+            'the movement after a search that stood still still clears',
+            vim.v.hlsearch == 0 and #vim.fn.getmatches(window) == 0,
+            'v:hlsearch='
+                .. vim.v.hlsearch
+                .. ' '
+                .. #vim.fn.getmatches(window)
+                .. ' matches'
+        )
+    end
+
+    ----------------------------------------------------------------------
+
+    h.group('* keeps the highlighting it just turned on')
+
+    -- vim's own * runs the moment the mapping hands the key back, and it moves
+    -- the cursor before the rest of the mapping gets to say a word about it.
+    -- Said only afterwards, the expectation arrives too late and * clears the
+    -- very highlighting it had just asked for
+    do
+        local window = fresh({ autoNoHighlight = true })
+        cash.setSearch('foo')
+        store(2, 'bar')
+        lit()
+
+        -- vim's * has moved the cursor already, and this is that movement
+        vim.api.nvim_exec_autocmds('CursorMoved', {})
+
+        -- and this is the mapping, which has not run yet
+        local mapping = vim.fn.maparg('*', 'n', false, true)
+        h.check('* is mapped', mapping.callback ~= nil)
+        if mapping.callback ~= nil then
+            mapping.callback()
+        end
+
+        vim.wait(150, function()
+            return vim.v.hlsearch == 0
+        end)
+        h.check(
+            'pressing * does not clear what pressing * lit up',
+            vim.v.hlsearch == 1 and #vim.fn.getmatches(window) == 1,
+            'v:hlsearch='
+                .. vim.v.hlsearch
+                .. ' '
+                .. #vim.fn.getmatches(window)
+                .. ' matches'
+        )
+    end
+
+    ----------------------------------------------------------------------
+
     h.group(':Cash autohide')
 
     do

@@ -158,6 +158,19 @@ end
 -- user. See CashModule.expectSearchMove
 local searchIsMovingTheCursor = false
 
+-- how many times the highlighting has been asked for: once for every search
+-- about to move the cursor, and once every time it is turned back on by hand.
+--
+-- autoNoHighlight cannot clear the highlighting the moment it decides to,
+-- because v:hlsearch does not survive being assigned from inside an autocmd,
+-- so the clear waits for a schedule. More keys can be dealt with in the
+-- meantime, and a search among them turns the highlighting back on -- so a
+-- clear that was already on its way would land on top of it and take away the
+-- colors of a jump the user has only just made. Every pending clear remembers
+-- what this counter said when it was scheduled, and gives up if it has moved
+-- on since
+local highlightingRequests = 0
+
 -- says that the next cursor movement belongs to a search.
 --
 -- autoNoHighlight clears the highlighting as soon as the cursor moves, and
@@ -166,6 +179,7 @@ local searchIsMovingTheCursor = false
 -- "clear it when I move"
 CashModule.expectSearchMove = function()
     searchIsMovingTheCursor = true
+    highlightingRequests = highlightingRequests + 1
 end
 
 -- turns search highlighting back on, undoing a :nohlsearch, and brings every
@@ -178,14 +192,22 @@ end
 -- v:hlsearch back at 0 and takes them all away again. Scheduling the
 -- assignment runs it outside that context, where it sticks. Both are done: the
 -- first so that the caller sees the effect immediately, the second so that it
--- lasts
+-- lasts.
+--
+-- Both assignments count as asking for the highlighting, so that a clear
+-- autoNoHighlight had already scheduled gives up rather than undoing this. The
+-- second one is what covers the drawer: opening it moves the cursor into its
+-- own window, and that movement is seen and scheduled against after this
+-- function has run
 CashModule.showHighlighting = function()
+    highlightingRequests = highlightingRequests + 1
     pcall(function()
         vim.v.hlsearch = 1
     end)
     CashModule.updateHighlights()
 
     vim.schedule(function()
+        highlightingRequests = highlightingRequests + 1
         pcall(function()
             vim.v.hlsearch = 1
         end)
@@ -381,16 +403,34 @@ CashModule.setUpAutocmds = function()
     vim.api.nvim_create_autocmd('CursorMoved', {
         group = group,
         callback = function()
-            if not CashModule.opts.autoNoHighlight or vim.v.hlsearch == 0 then
+            if not CashModule.opts.autoNoHighlight then
                 return
             end
 
-            if searchIsMovingTheCursor then
-                searchIsMovingTheCursor = false
+            -- spent here rather than below, because a movement is a movement
+            -- whether or not there is anything lit to take away. Left standing
+            -- when the highlighting happens to be off, the expectation would
+            -- be spent on the user's next move instead, and that one would go
+            -- unnoticed
+            local thisIsTheSearch = searchIsMovingTheCursor
+            searchIsMovingTheCursor = false
+
+            if thisIsTheSearch or vim.v.hlsearch == 0 then
                 return
             end
+
+            -- what the counter says now. The schedule below runs after the
+            -- rest of the keys waiting to be dealt with, and if a search is
+            -- among them the highlighting it turns on is the newer answer:
+            -- clearing then would leave the cursor sitting on a match with
+            -- nothing marking it
+            local requestedWhenScheduled = highlightingRequests
 
             vim.schedule(function()
+                if requestedWhenScheduled ~= highlightingRequests then
+                    return
+                end
+
                 pcall(function()
                     vim.v.hlsearch = 0
                 end)
@@ -403,6 +443,19 @@ CashModule.setUpAutocmds = function()
     vim.api.nvim_create_autocmd('SafeState', {
         group = group,
         callback = function()
+            -- a search that was expected to move the cursor and did not is
+            -- forgotten here. Not every search moves: one that finds nothing
+            -- leaves the cursor where it was, and so does * with
+            -- disableStarPoundJump, which is the default. The expectation
+            -- would otherwise sit there waiting to be spent on whatever the
+            -- user did next, and that move would not clear the highlighting
+            -- the way every other move does.
+            --
+            -- SafeState is vim about to wait for the next key, which is after
+            -- the search has had its chance to move the cursor and after the
+            -- CursorMoved it would have caused
+            searchIsMovingTheCursor = false
+
             if vim.v.hlsearch == lastHighlightState then
                 return
             end
