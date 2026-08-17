@@ -106,19 +106,32 @@ keymaps.setUpKeymaps = function(cash)
         -- check if the current command is a search command
         local commandType = vim.fn.getcmdtype()
         if commandType == '/' or commandType == '?' then
-            -- update Cash.nvim for the new search
-            cash.setSearch(vim.fn.getcmdline())
-
             -- the search is about to move the cursor itself
             cash.expectSearchMove()
 
             -- the search has not run yet: this mapping only hands back the
-            -- <CR> that sets it going. Centering therefore has to wait for
-            -- the cursor to arrive, which is the next turn of the event loop.
+            -- <CR> that sets it going. Both the pattern and the centering
+            -- therefore have to wait for it, which is the next turn of the
+            -- event loop.
+            --
+            -- The pattern is taken from the search register afterwards rather
+            -- than from the command line beforehand, because the two are not
+            -- the same thing. A search offset (/foo/e) is typed but is no part
+            -- of the pattern, and an empty command line is not a search for
+            -- nothing but a repeat of the last search -- taken literally, it
+            -- emptied the search register in front of the search that was
+            -- about to reuse it, so the repeat failed with E35 and the cash
+            -- register was thrown away with it. Vim has worked all of that out
+            -- by the time this runs, and @/ is the answer it came to. It is
+            -- set even for a pattern vim cannot compile, so a cash register
+            -- can still hold one of those
+            --
             -- A search that finds nothing leaves the cursor where it was, and
             -- vim does not scroll the window for one, so neither does this
             local before = vim.api.nvim_win_get_cursor(0)
             vim.schedule(function()
+                cash.setSearch(vim.fn.getreg('/'))
+
                 local after = vim.api.nvim_win_get_cursor(0)
                 if not vim.deep_equal(after, before) then
                     cash.centerWindow()
