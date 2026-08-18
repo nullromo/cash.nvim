@@ -2,6 +2,8 @@
 
 **CASH**: **C**hoose from **A**vailable **S**earch **H**ighlights
 
+[![LuaRocks](https://img.shields.io/luarocks/v/nullromo/cash.nvim?logo=lua&color=purple)](https://luarocks.org/modules/nullromo/cash.nvim)
+
 ## 💰 Overview
 
 This plugin adds additional search registers to Neovim. Normally when you
@@ -32,6 +34,12 @@ Lazy.nvim config:
         cash.setup(opts)
     end,
 }
+```
+
+With [rocks.nvim](https://github.com/lumen-oss/rocks.nvim):
+
+```vim
+:Rocks install cash.nvim
 ```
 
 Everything below is also available inside Neovim as [vimdoc](./doc/cash.txt):

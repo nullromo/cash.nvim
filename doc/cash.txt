@@ -99,6 +99,10 @@ With lazy.nvim: >lua
         end,
     }
 <
+With rocks.nvim from luarocks.org: >vim
+
+    :Rocks install cash.nvim
+<
 With any other plugin manager, or with none, a call to
 `require('cash').setup({})` somewhere in your configuration is all that is
 needed. See |cash-configuration| for what can go in the table.
