@@ -304,3 +304,37 @@ as space to place into.
 
 The Vim highlight group carrying a cash register's colors, named
 `CashRegister1` through `CashRegister9`. Created once during setup.
+
+## Ownership marker
+
+The `Cash.nvim: ` prefix on the `desc` of every mapping this plugin makes, in
+`keymaps.ownMapping`.
+
+It is not decoration. Two things read it:
+
+- `addKeyTrigger` uses it to tell its own earlier mapping apart from a foreign
+  one, so that a second `setup` replaces its mapping instead of wrapping it and
+  searching twice for one keypress.
+- The health check uses it to answer "does Cash.nvim still own this key", which
+  is how a plugin that loaded later and quietly replaced <kbd>n</kbd> gets
+  named.
+
+So every mapping needs the prefix, including ones nobody would think to
+describe. The command-line <kbd>Enter</kbd> mapping went without one for a
+while, and it was invisible to both of the above.
+
+## Health check
+
+`lua/cash/health.lua`, which `:checkhealth cash` runs.
+
+> Everything in it is something that can be wrong without the plugin saying so
+> at the time.
+
+That is the whole admission criterion. Colors that do not render, highlight
+groups a colorscheme cleared, a key something else took, cash registers that
+did not come back: none of them raise an error, and all of them look from the
+outside like the plugin being broken.
+
+It reports and never repairs. A check that fixed what it found would describe a
+working plugin and leave the user with one that only works after they run
+`:checkhealth`.

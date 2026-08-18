@@ -383,6 +383,28 @@ Do not use the usual `vim.keymap.set('n', 'n', 'nzz')` for this. That mapping
 calls Vim's built-in <kbd>n</kbd>, which knows nothing about the search set, so
 <kbd>n</kbd> would only ever be able to visit the working cash register.
 
+## 🏧 Troubleshooting
+
+```vim
+:checkhealth cash
+```
+
+Nothing in Cash.nvim raises an error when the colors don't render, when a cash
+register stops painting, or when a keymap conflicts. The healthcheck can help
+diagnose these problems. It reports:
+
+- Neovim version and `termguicolors`.
+- Whether `setup` has been called.
+- Every option that isn't set to its default.
+- Map origins for keys that Cash.nvim maps. A plugin that loads after Cash.nvim
+  and maps one of these keys can replace the mapping.
+- Whether the `CashRegister` highlight groups still exist. The setup function
+  creates them, and a colorscheme loaded after setup could clear them.
+- Whether the cash registers can be saved, and what the last session left
+  behind.
+
+The healthcheck does not modify anything.
+
 ## 🏦 License, Contributing, etc.
 
 See [LICENSE](./LICENSE) and [CONTRIBUTING.md](./CONTRIBUTING.md).

@@ -4,8 +4,11 @@ local util = require('cash.util')
 local keymaps = {}
 
 -- every mapping this plugin makes says so, both so that which-key and friends
--- have something to show and so that addKeyTrigger can recognise its own work
+-- have something to show and so that addKeyTrigger can recognise its own work.
+-- Exported because it is also how the health check tells a key this plugin
+-- still owns from one something else has since taken
 local ownMapping = 'Cash.nvim: '
+keymaps.ownMapping = ownMapping
 
 -- adds a mapping without disturbing existing mappings.
 --
@@ -148,7 +151,10 @@ keymaps.setUpKeymaps = function(cash)
 
         -- execute the command as normal
         return '<CR>'
-    end, { expr = true })
+    end, {
+        expr = true,
+        desc = ownMapping .. 'fill the working cash register from a search',
+    })
 
     -- what *, #, g* and g# do.
     --

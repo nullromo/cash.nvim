@@ -29,7 +29,8 @@ CONTENTS                                    *cash-contents* *cash.nvim* *cash*
   14. Highlight groups ............................... |cash-highlight-groups|
   15. Compatibility ..................................... |cash-compatibility|
   16. Tips ....................................................... |cash-tips|
-  17. About ..................................................... |cash-about|
+  17. Troubleshooting ................................. |cash-troubleshooting|
+  18. About ..................................................... |cash-about|
 
 
 ==============================================================================
@@ -77,7 +78,8 @@ Call |cash.setup()| once, then:
   - 'termguicolors' switched on. Cash register colors are given as `#RRGGBB`,
     which a terminal without true color support cannot show.
 
-There are no plugin dependencies.
+There are no plugin dependencies. `:checkhealth cash` reports whether both
+requirements are met; see |cash-troubleshooting|.
 
 
 ==============================================================================
@@ -864,7 +866,39 @@ every search you make in the other eight.
 
 
 ==============================================================================
-17. ABOUT                                                         *cash-about*
+17. TROUBLESHOOTING                                     *cash-troubleshooting*
+
+>vim
+    :checkhealth cash
+<
+Nothing in Cash.nvim raises an error when the colors don't render, when a cash
+register stops painting, or when a keymap conflicts. The healthcheck can help
+diagnose these problems. It reports:
+
+It reports:
+
+  - Neovim's version and 'termguicolors', which are |cash-requirements|.
+
+  - Whether |cash.setup()| has been called.
+
+  - Every option that is not set to its default.
+
+  - Map origins for keys that Cash.nvim maps. A plugin that loads after
+    Cash.nvim and maps one of these keys can replace the mapping. See
+    |cash-compat-n|.
+
+  - Whether the |cash-highlight-groups| highlight groups still exist. The
+    setup function creates them, and a colorscheme loaded after setup could
+    clear them.
+
+  - Whether the cash registers can be saved, and what the last session left
+    behind. See |cash-persistence|.
+
+The healthcheck does not modify anything.
+
+
+==============================================================================
+18. ABOUT                                                         *cash-about*
 
 Cash.nvim is written by Kyle Kovacs and is available under the MIT license.
 
