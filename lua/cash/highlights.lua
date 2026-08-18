@@ -1,24 +1,44 @@
 local util = require('cash.util')
 
+-- one match this module has added: the ID matchdelete needs, and the pattern it
+-- was built from, so that a pattern which has since changed can be told apart
+-- from one that has not
+---@class cash.LedgerEntry
+---@field id integer
+---@field matchPattern string
+
+-- which matches this plugin has added to which windows, keyed by window ID and
+-- then by cash register
+---@alias cash.Ledger table<integer, table<integer, cash.LedgerEntry|nil>>
+
 local highlights = {}
 
 -- colors for the 9 cash registers. Set once during setup
+---@type cash.ResolvedColorOptions|nil
 local colors = nil
 
 -- record of the matches this module has added to each window. An index with no
--- entry has no match.
--- Data format: ledger[windowID][index] = { id = <match ID>, matchPattern = <string> }
+-- entry has no match, and that is the only way absence is spelled: there are no
+-- sentinel values, and no entry never means that adding one was tried and
+-- failed
+---@type cash.Ledger
 local ledger = {}
 
 -- wrapper for matchdelete that will not throw an error. A failure here almost
 -- always means the match already went away with its window, so it is not worth
 -- reporting
+---@param matchID integer
+---@param windowID integer
 local deleteMatch = function(matchID, windowID)
     pcall(vim.fn.matchdelete, matchID, windowID)
 end
 
 -- the pattern that the index-th cash register should be highlighting in every
 -- window right now, or nil if it should not be highlighted at all
+---@param cashRegisters cash.Register[]
+---@param currentIndex cash.RegisterIndex
+---@param index cash.RegisterIndex
+---@return string|nil matchPattern
 local desiredPattern = function(cashRegisters, currentIndex, index)
     -- the working cash register is highlighted by vim's own Search highlight,
     -- not by a match, so that hlsearch and :nohlsearch keep working normally
@@ -46,6 +66,10 @@ end
 -- adds a match to one window. Returns the match ID or nil. The pattern has
 -- already been checked, so a refusal here is about the window rather than the
 -- pattern, and sorts itself out on the next update
+---@param index cash.RegisterIndex
+---@param windowID integer
+---@param matchPattern string
+---@return integer|nil matchID
 local addMatch = function(index, windowID, matchPattern)
     local addOK, matchID = pcall(
         vim.fn.matchadd,
@@ -64,6 +88,7 @@ local addMatch = function(index, windowID, matchPattern)
 end
 
 -- the working cash register is shown using vim's Search highlight
+---@param currentIndex cash.RegisterIndex
 local setSearchHighlight = function(currentIndex)
     -- colors is nil when the plugin is not set up yet
     if colors == nil then
@@ -78,6 +103,7 @@ end
 
 -- forgets the ledger entries for windows that no longer exist. Their matches
 -- went away with them, so there is nothing to delete
+---@param liveWindows table<integer, boolean> every window that still exists
 local pruneClosedWindows = function(liveWindows)
     for windowID in pairs(ledger) do
         if not liveWindows[windowID] then
@@ -94,6 +120,8 @@ end
 -- light text but nearly invisible as text itself, so anything too dark is
 -- lightened until it is not. Blending toward white raises perceived brightness
 -- by exactly the amount blended, which is what makes the arithmetic this short
+---@param hex string a color as #RRGGBB
+---@return string
 local readableForeground = function(hex)
     local red = tonumber(hex:sub(2, 3), 16)
     local green = tonumber(hex:sub(4, 5), 16)
@@ -120,6 +148,7 @@ local readableForeground = function(hex)
 end
 
 -- stores the colors and creates the highlight group for each cash register
+---@param colorOpts cash.ResolvedColorOptions
 highlights.setup = function(colorOpts)
     colors = colorOpts
 
@@ -147,6 +176,8 @@ end
 --
 -- Safe to call at any time and as often as you like; a call that finds nothing
 -- out of place does not touch vim at all
+---@param cashRegisters cash.Register[]
+---@param currentIndex cash.RegisterIndex
 highlights.update = function(cashRegisters, currentIndex)
     -- the working cash register's color comes from the Search highlight
     setSearchHighlight(currentIndex)
@@ -224,6 +255,7 @@ end
 -- The ledger is private, and stays that way. This exists because whether a
 -- closed window has been forgotten is not observable from anywhere else, and
 -- that is worth a test
+---@return integer[]
 highlights.trackedWindows = function()
     local windows = {}
 

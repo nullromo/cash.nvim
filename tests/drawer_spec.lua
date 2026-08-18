@@ -594,7 +594,9 @@ return function(h)
 
         h.check(
             'a verb that does not exist is refused rather than thrown',
-            pcall(vim.cmd, 'Cash bogus')
+            pcall(function()
+                vim.cmd('Cash bogus')
+            end)
         )
     end
 
@@ -739,6 +741,7 @@ return function(h)
         )
         h.check(
             'a border of the wrong type is rejected',
+            ---@diagnostic disable-next-line: assign-type-mismatch
             not pcall(cash.setup, { drawer = { border = 7 } })
         )
         h.check(
@@ -747,6 +750,7 @@ return function(h)
         )
         h.check(
             'detailPane must be a boolean',
+            ---@diagnostic disable-next-line: assign-type-mismatch
             not pcall(cash.setup, { drawer = { detailPane = 'yes' } })
         )
 

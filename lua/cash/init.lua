@@ -4,6 +4,7 @@ local keymaps = require('cash.keymaps')
 local options = require('cash.options')
 
 -- main setup function for Cash.nvim
+---@param opts? cash.Options anything left out keeps its default
 cashModule.setup = function(opts)
     -- check the user's options and fill in the defaults
     opts = options.resolve(opts)

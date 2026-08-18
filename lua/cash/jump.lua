@@ -13,11 +13,20 @@
 
 local util = require('cash.util')
 
+-- one cash register in the search set that has something to find: its index,
+-- and the pattern vim is actually given for it
+---@class cash.SearchablePattern
+---@field index cash.RegisterIndex
+---@field matchPattern string
+
 local jump = {}
 
 -- the cash registers whose matches n and N move between. The working cash
 -- register is always one of them: the user has just searched for its pattern,
 -- so n has to be able to find it, whatever its own switch says
+---@param cashRegisters cash.Register[]
+---@param currentIndex cash.RegisterIndex
+---@return cash.RegisterIndex[]
 jump.searchSet = function(cashRegisters, currentIndex)
     local indices = {}
 
@@ -34,6 +43,9 @@ end
 -- empty ones, and the ones holding a pattern vim cannot compile. Each entry
 -- keeps its index, because the caller needs to know whether what is left is
 -- just the working cash register
+---@param cashRegisters cash.Register[]
+---@param currentIndex cash.RegisterIndex
+---@return cash.SearchablePattern[]
 jump.searchablePatterns = function(cashRegisters, currentIndex)
     local searchable = {}
 
@@ -53,7 +65,14 @@ jump.searchablePatterns = function(cashRegisters, currentIndex)
     return searchable
 end
 
+-- a place in the buffer: the row and the column, both counted from 1, which is
+-- how searchpos hands them back
+---@alias cash.BufferPosition integer[]
+
 -- true if position a comes before position b in the buffer
+---@param a cash.BufferPosition
+---@param b cash.BufferPosition
+---@return boolean
 local isBefore = function(a, b)
     if a[1] ~= b[1] then
         return a[1] < b[1]
@@ -67,6 +86,10 @@ end
 -- Everything reachable without wrapping is considered first, so that a cash
 -- register with no match ahead of the cursor never drags the jump backwards to
 -- one behind it. Only when no register has anything ahead does the search wrap
+---@param searchable cash.SearchablePattern[]
+---@param forward boolean
+---@return cash.BufferPosition|nil position nil when there is nowhere to go
+---@return boolean wrapped
 local nearest = function(searchable, forward)
     local isCloser = forward and isBefore
         or function(a, b)
@@ -74,6 +97,7 @@ local nearest = function(searchable, forward)
         end
 
     local best = nil
+    ---@param position cash.BufferPosition a row of 0 means no match
     local consider = function(position)
         if position[1] ~= 0 and (best == nil or isCloser(position, best)) then
             best = position
@@ -106,6 +130,7 @@ end
 
 -- vim's own wrap message, which a hand-rolled jump has to produce itself. An
 -- 's' in shortmess is the user asking not to see it
+---@param forward boolean
 local announceWrap = function(forward)
     if string.find(vim.o.shortmess, 's', 1, true) then
         return
@@ -122,6 +147,7 @@ end
 
 -- vim's own not-found message. Every pattern that was looked for is named,
 -- since with a search set there is no single pattern to blame
+---@param searchable cash.SearchablePattern[]
 local announceNotFound = function(searchable)
     local patterns = {}
     for _, entry in ipairs(searchable) do
@@ -138,6 +164,7 @@ end
 
 -- moves the cursor the way n does: the jump is recorded so that '' comes back
 -- here, and a fold closed over the match is opened
+---@param position cash.BufferPosition
 local moveTo = function(position)
     vim.cmd("normal! m'")
     vim.api.nvim_win_set_cursor(0, { position[1], position[2] - 1 })
@@ -157,6 +184,8 @@ end
 -- include-in-search switch. Counts, search offsets, the wrap message, folds
 -- and the jumplist then all come from vim itself, so the ordinary case is not
 -- a reimplementation of anything
+---@param cash cash.Module
+---@param forward boolean true for n, false for N
 jump.go = function(cash, forward)
     local count = vim.v.count1
     local state = cash.state
@@ -172,8 +201,9 @@ jump.go = function(cash, forward)
         #searchable == 0
         or (#searchable == 1 and searchable[1].index == state.currentIndex)
     then
-        local ok, err =
-            pcall(vim.cmd, 'normal! ' .. count .. (forward and 'n' or 'N'))
+        local ok, err = pcall(function()
+            vim.cmd('normal! ' .. count .. (forward and 'n' or 'N'))
+        end)
         if not ok then
             util.echoVimError(err)
             return

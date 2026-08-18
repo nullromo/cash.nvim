@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # the tests and the type check both run inside a real neovim
+      - name: Install Neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      # pinned rather than latest, so that a stylua release cannot fail a pull
+      # request that changed nothing. Bump it deliberately
+      - name: Check formatting
+        uses: JohnnyMorganz/stylua-action@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: 2.5.2
+          args: --check lua tests scripts
+
+      - name: Run the tests
+        run: nvim --headless -u NONE -l tests/run.lua
+
+      # pinned for the same reason as stylua. A new lua-language-server can
+      # find things the last one did not, which is worth having on purpose
+      # rather than on the morning it happens
+      - name: Install lua-language-server
+        run: |
+          version=3.19.1
+          curl -fsSL -o luals.tar.gz \
+            "https://github.com/LuaLS/lua-language-server/releases/download/${version}/lua-language-server-${version}-linux-x64.tar.gz"
+          mkdir -p "${HOME}/.local/lua-language-server"
+          tar -xzf luals.tar.gz -C "${HOME}/.local/lua-language-server"
+          echo "${HOME}/.local/lua-language-server/bin" >> "${GITHUB_PATH}"
+
+      - name: Type check
+        run: nvim --headless -u NONE -l scripts/typecheck.lua

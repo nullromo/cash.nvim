@@ -29,13 +29,39 @@ local GUTTER = 10
 
 local namespace = vim.api.nvim_create_namespace('CashNvimDrawer')
 
+-- Everything about the drawer while it is open.
+--
+-- The snapshot is what <C-c> puts back. The counts are the match counts already
+-- worked out, keyed by match pattern: the buffers behind cannot change while
+-- the drawer is open, so an answer stays good for as long as the drawer does.
+-- writing is true while the plugin is writing to the buffer, so that its own
+-- writes do not come back round as user edits.
+--
+-- Most of what follows runs only while the drawer is open, and reads drawer
+-- without checking it. Each of those functions says so with a ---@cast, which
+-- is that precondition written down instead of assumed
+---@class cash.Drawer
+---@field buffer integer holds the nine patterns, one per line, and nothing else
+---@field window integer
+---@field height integer
+---@field cash cash.Module
+---@field originWindow integer the window the user came from
+---@field snapshot cash.State
+---@field counts table<string, string>
+---@field writing boolean
+---@field pane? integer the detail pane, while it is open
+---@field paneBuffer? integer
+
 -- the drawer while it is open, nil the rest of the time
+---@type cash.Drawer|nil
 local drawer = nil
 
 -- declared up here because render calls it and it is defined further down,
 -- where the rest of the detail pane lives
+---@type fun()
 local paneRender
 
+---@type string[][]
 local FOOTER = {
     { '<CR>', 'select reg, close', '<Tab>', 'select reg, stay open' },
     { '<Space>', 'toggle include', ']/[', 'swap register down/up' },
@@ -45,6 +71,7 @@ local FOOTER = {
 
 -- written out rather than padded into place, because box drawing characters
 -- are several bytes each and the alignment here has to be exact
+---@type string[][]
 local LEGEND = {
     { '  │ │  │' },
     { '  │ │  ╰─', 'Include in search' },
@@ -52,12 +79,16 @@ local LEGEND = {
     { '  ╰─', 'Selected cash register' },
 }
 
+---@param text string
+---@param width integer
+---@return string
 local pad = function(text, width)
     return text .. string.rep(' ', math.max(0, width - #text))
 end
 
 -- where a popup sits, as a fraction of the space left over once it has been
 -- placed. 0 is flush against the top or left, 1 against the bottom or right
+---@type table<cash.Position, number[]>
 local PLACEMENT = {
     ['top-left'] = { 0, 0 },
     ['top'] = { 0, 0.5 },
@@ -73,6 +104,10 @@ local PLACEMENT = {
 -- the row and column for a popup of this size in this position. The border
 -- adds a row and a column on each side, and the command line and status line
 -- are not free to be covered, so neither counts as space to place into
+---@param position cash.Position
+---@param width integer
+---@param height integer without its border
+---@return { row: integer, col: integer }
 local placement = function(position, width, height)
     local fraction = PLACEMENT[position] or PLACEMENT['center']
 
@@ -85,13 +120,35 @@ local placement = function(position, width, height)
     }
 end
 
+-- a piece of text and the highlight group to draw it in, which is the shape
+-- nvim_buf_set_extmark takes for virt_text. The group may be left out, and text
+-- without one is deliberately unpainted: naming a group for the plain spaces in
+-- the gutter would punch holes through cursorline on the row the cursor is on
+---@alias cash.Chunk string[]
+
+-- where one highlight group goes on a row, as byte offsets into its text
+---@class cash.RowMark
+---@field from integer
+---@field to integer
+---@field group string
+
+-- a line the drawer or the pane is building: the text, and the highlights that
+-- go over it
+---@class cash.Row
+---@field text string
+---@field marks cash.RowMark[]
+
 -- a line under construction, kept as text plus the highlights that go over it.
 -- Built together because the highlights are byte ranges into the text, and a
 -- pattern can hold anything the user typed, multibyte included
+---@return cash.Row
 local newRow = function()
     return { text = '', marks = {} }
 end
 
+---@param row cash.Row
+---@param text string
+---@param group? string left out for text that should not be painted
 local addChunk = function(row, text, group)
     if group ~= nil then
         table.insert(row.marks, {
@@ -103,6 +160,8 @@ local addChunk = function(row, text, group)
     row.text = row.text .. text
 end
 
+---@param row cash.Row
+---@param width integer in display cells
 local padRowTo = function(row, width)
     local shortfall = width - vim.fn.strdisplaywidth(row.text)
     if shortfall > 0 then
@@ -110,6 +169,9 @@ local padRowTo = function(row, width)
     end
 end
 
+---@param text string
+---@param width integer in display cells
+---@return string
 local truncate = function(text, width)
     if vim.fn.strdisplaywidth(text) <= width then
         return text
@@ -125,7 +187,11 @@ end
 -- because the counts are redrawn on every keystroke while a pattern is being
 -- typed -- so an answer is only worked out for a pattern that has not been
 -- asked about before
+---@param matchPattern string
+---@return string count as it is drawn, so 999+ rather than a number, and empty
+--- when there is no answer
 local matchCount = function(matchPattern)
+    ---@cast drawer cash.Drawer
     local cached = drawer.counts[matchPattern]
     if cached ~= nil then
         return cached
@@ -154,6 +220,9 @@ end
 -- The plain spaces are left without a highlight group on purpose. Naming one
 -- would paint them, and they would then punch holes through cursorline on the
 -- row the cursor is on
+---@param cash cash.Module
+---@param index cash.RegisterIndex
+---@return cash.Chunk[]
 local gutterFor = function(cash, index)
     local register = cash.state.cashRegisters[index]
     local isSelected = index == cash.state.currentIndex
@@ -178,6 +247,7 @@ end
 -- and a winbar is a row of the window rather than of the buffer, so the cursor
 -- cannot reach it either. %= right-aligns what follows, which puts "Match
 -- count" over the counts however wide the drawer is
+---@return string
 local winbar = function()
     return '%#Comment#'
         .. string.rep(' ', GUTTER)
@@ -187,6 +257,8 @@ end
 -- the line naming the search set. It is the only place the drawer says which
 -- cash registers n and N will visit, since an included register looks exactly
 -- like an excluded one out in the buffer
+---@param cash cash.Module
+---@return cash.Chunk[]
 local searchSetLine = function(cash)
     local chunks = { { '  n/N will jump between  ', 'Comment' } }
 
@@ -204,10 +276,12 @@ local searchSetLine = function(cash)
     return chunks
 end
 
+---@return cash.Chunk[]
 local separatorLine = function()
     return { { string.rep('─', WIDTH), 'NonText' } }
 end
 
+---@return cash.Chunk[][]
 local footerLines = function()
     local lines = {}
 
@@ -227,6 +301,7 @@ local footerLines = function()
     return lines
 end
 
+---@return cash.Chunk[][]
 local legendLines = function()
     local lines = {}
 
@@ -245,6 +320,7 @@ end
 -- every change, including every keystroke while a pattern is being typed, so
 -- it never touches the buffer's text or the cursor
 local decorate = function()
+    ---@cast drawer cash.Drawer
     local cash = drawer.cash
     local buffer = drawer.buffer
 
@@ -305,7 +381,9 @@ end
 -- working altogether. Used once, at the start, it is exactly right: u must not
 -- be able to rewind to the empty buffer the drawer began as, because the
 -- row-count guard would read that back as nine empty cash registers
+---@param forgetUndo? boolean true on the first write only
 local writeLines = function(forgetUndo)
+    ---@cast drawer cash.Drawer
     local buffer = drawer.buffer
     local patterns = {}
     for index = 1, 9 do
@@ -326,6 +404,7 @@ local writeLines = function(forgetUndo)
     drawer.writing = false
 end
 
+---@param forgetUndo? boolean true on the first write only
 local render = function(forgetUndo)
     writeLines(forgetUndo)
     decorate()
@@ -339,6 +418,7 @@ end
 -- :move, a macro. Repairing is better than refusing, since refusing would mean
 -- watching every route into the buffer rather than the one invariant
 local enforceNineLines = function()
+    ---@cast drawer cash.Drawer
     local buffer = drawer.buffer
     local count = vim.api.nvim_buf_line_count(buffer)
     if count == 9 then
@@ -351,7 +431,9 @@ local enforceNineLines = function()
     -- both back together. Without this the user's dd and the row it puts back
     -- are two separate undo steps, and u appears to do nothing at all.
     -- undojoin refuses right after an undo, which is not worth reporting
-    pcall(vim.cmd, 'silent! undojoin')
+    pcall(function()
+        vim.cmd('silent! undojoin')
+    end)
 
     if count > 9 then
         vim.api.nvim_buf_set_lines(buffer, 9, -1, false, {})
@@ -369,6 +451,7 @@ end
 -- reads the buffer back into the cash registers. The buffer is the truth while
 -- the drawer is open, because it is what the user has been typing into
 local syncFromBuffer = function()
+    ---@cast drawer cash.Drawer
     local lines = vim.api.nvim_buf_get_lines(drawer.buffer, 0, 9, false)
     for index = 1, 9 do
         drawer.cash.state.cashRegisters[index].pattern = lines[index] or ''
@@ -403,6 +486,8 @@ local PANE_VALUE = PANE_WIDTH - 2 - PANE_LABEL
 -- maxcount stops at the first hit, since the question is only whether there is
 -- one, and timeout keeps a pathological pattern from stalling the pane while
 -- someone is still typing it
+---@param matchPattern string
+---@return integer[] windowIDs sorted, and never the drawer or the pane
 local matchingWindows = function(matchPattern)
     local found = {}
 
@@ -430,10 +515,15 @@ local matchingWindows = function(matchPattern)
     return found
 end
 
+---@param cash cash.Module
+---@param index cash.RegisterIndex the cash register the pane is about
+---@return cash.Row[]
 local paneRows = function(cash, index)
     local register = cash.state.cashRegisters[index]
     local rows = {}
 
+    ---@param label string
+    ---@param chunks? cash.Chunk[]
     local line = function(label, chunks)
         local row = newRow()
         addChunk(row, '  ')
@@ -445,6 +535,8 @@ local paneRows = function(cash, index)
         table.insert(rows, row)
     end
 
+    ---@param answer boolean
+    ---@return cash.Chunk[]
     local yesNo = function(answer)
         return { answer and { 'yes' } or { 'no', 'Comment' } }
     end
@@ -522,7 +614,9 @@ paneRender = function()
         table.insert(text, row.text)
     end
 
-    local buffer = drawer.paneBuffer
+    -- the pane and its buffer are made and cleared together, so the guard
+    -- above has settled this one too
+    local buffer = drawer.paneBuffer --[[@as integer]]
     vim.bo[buffer].modifiable = true
     vim.api.nvim_buf_set_lines(buffer, 0, -1, false, text)
     vim.bo[buffer].modifiable = false
@@ -549,6 +643,7 @@ end
 -- centers what the user is actually looking at rather than centering the
 -- drawer and letting the pane hang off the side
 local placeWindows = function()
+    ---@cast drawer cash.Drawer
     local cash = drawer.cash
     local paneRoom = drawer.pane ~= nil and (PANE_WIDTH + 2) or 0
     local where =
@@ -574,7 +669,7 @@ ui.closePane = function()
         return
     end
 
-    local pane = drawer.pane
+    local pane = drawer.pane --[[@as integer]]
     drawer.pane = nil
     drawer.paneBuffer = nil
 
@@ -639,10 +734,12 @@ ui.openPane = function()
     placeWindows()
 end
 
+---@return boolean
 ui.isOpen = function()
     return drawer ~= nil and vim.api.nvim_win_is_valid(drawer.window)
 end
 
+---@return boolean
 ui.isOpenPane = function()
     return drawer ~= nil
         and drawer.pane ~= nil
@@ -651,11 +748,18 @@ end
 
 -- what the pane is currently saying, as lines. For tests, and for anyone who
 -- wants the same facts without a window
+---@return string[] lines # empty while the pane is closed
 ui.paneContents = function()
     if not ui.isOpenPane() then
         return {}
     end
-    return vim.api.nvim_buf_get_lines(drawer.paneBuffer, 0, -1, false)
+    ---@cast drawer cash.Drawer
+    return vim.api.nvim_buf_get_lines(
+        drawer.paneBuffer --[[@as integer]],
+        0,
+        -1,
+        false
+    )
 end
 
 ui.close = function()
@@ -680,6 +784,7 @@ end
 -- which mirrors the selected cash register and would otherwise still hold what
 -- that register said when the drawer opened
 local apply = function()
+    ---@cast drawer cash.Drawer
     local cash = drawer.cash
     enforceNineLines()
     syncFromBuffer()
@@ -693,6 +798,7 @@ end
 
 -- puts back the cash registers exactly as they were when the drawer opened
 local discard = function()
+    ---@cast drawer cash.Drawer
     local cash = drawer.cash
     cash.state.cashRegisters = drawer.snapshot.cashRegisters
     cash.state.currentIndex = drawer.snapshot.currentIndex
@@ -704,14 +810,19 @@ local discard = function()
     ui.close()
 end
 
+---@return cash.RegisterIndex index there are nine rows and nine cash
+--- registers, so the cursor's row is one of them
 local registerUnderCursor = function()
+    ---@cast drawer cash.Drawer
     return vim.api.nvim_win_get_cursor(drawer.window)[1]
 end
 
 -- selecting a cash register searches for its pattern, and that has to happen
 -- in the window the user came from. Run with the drawer focused, the jump
 -- would land in the list of patterns instead
+---@param index cash.RegisterIndex
 local selectRegister = function(index)
+    ---@cast drawer cash.Drawer
     local cash = drawer.cash
     local originWindow = drawer.originWindow
 
@@ -724,8 +835,13 @@ local selectRegister = function(index)
     end
 end
 
+---@param cash cash.Module
 local setUpKeymaps = function(cash)
+    ---@cast drawer cash.Drawer
     local buffer = drawer.buffer
+    ---@param mode string
+    ---@param key string
+    ---@param action string|fun()
     local map = function(mode, key, action)
         vim.keymap.set(mode, key, action, { buffer = buffer, nowait = true })
     end
@@ -761,8 +877,11 @@ local setUpKeymaps = function(cash)
 
     -- swapping moves the pattern and the switch, but not the color: that
     -- belongs to the slot, which is what makes this a way to recolor a search
+    ---@param step integer -1 for up, 1 for down
+    ---@return fun()
     local swap = function(step)
         return function()
+            ---@cast drawer cash.Drawer
             local index = registerUnderCursor()
             local other = index + step
             if other < 1 or other > 9 then
@@ -798,6 +917,7 @@ local setUpKeymaps = function(cash)
     -- D, C, cc, S and cw need no mapping at all: the line is nothing but the
     -- pattern, so they already do the right thing
     map('n', 'dd', function()
+        ---@cast drawer cash.Drawer
         local index = registerUnderCursor()
         vim.api.nvim_buf_set_lines(
             drawer.buffer,
@@ -814,6 +934,7 @@ local setUpKeymaps = function(cash)
     map('i', '<CR>', '<Esc>')
 
     map('n', '?', function()
+        ---@cast drawer cash.Drawer
         if drawer.pane == nil then
             ui.openPane()
         else
@@ -835,6 +956,11 @@ end
 local CHOOSER_COLUMN = 12
 local CHOOSER_PATTERN = CHOOSER_COLUMN - 5
 
+---@param row cash.Row
+---@param cash cash.Module
+---@param index cash.RegisterIndex
+---@param patternWidth? integer left out for the strip, which has room for the
+--- number only
 local chooserCell = function(row, cash, index, patternWidth)
     local register = cash.state.cashRegisters[index]
     local filled = register.pattern ~= ''
@@ -875,6 +1001,9 @@ end
 -- 'grid' lays the nine out the way a numpad does, which is not a coincidence
 -- worth wasting, and shows what each one holds. 'strip' is one line of numbers
 -- for when that is the only question
+---@param cash cash.Module
+---@param style cash.ChooserStyle
+---@return cash.Row[]
 local chooserRows = function(cash, style)
     local rows = {}
 
@@ -913,6 +1042,9 @@ end
 -- anything. Kept separate from chooseRegister so that what gets drawn can be
 -- looked at without a keypress blocking the loop, which is also how it is
 -- tested
+---@param cash cash.Module
+---@param style? cash.ChooserStyle chooser.style when left out
+---@return integer window
 ui.openChooser = function(cash, style)
     local rows = chooserRows(cash, style or cash.opts.chooser.style)
 
@@ -974,6 +1106,9 @@ end
 
 -- shows the chooser and waits for one keypress. Returns the cash register the
 -- user picked, or nil if they pressed anything else
+---@param cash cash.Module
+---@return cash.RegisterIndex|nil index nil when the key was not a digit from 1
+--- to 9
 ui.chooseRegister = function(cash)
     local window = nil
 
@@ -994,7 +1129,7 @@ ui.chooseRegister = function(cash)
     -- clear the command line, whichever way the answer was asked for
     vim.api.nvim_echo({ { '', '' } }, false, {})
 
-    if not pressed then
+    if not pressed or type(character) ~= 'number' then
         return nil
     end
 
@@ -1005,8 +1140,10 @@ ui.chooseRegister = function(cash)
     return index
 end
 
+---@param cash cash.Module
 ui.open = function(cash)
     if ui.isOpen() then
+        ---@cast drawer cash.Drawer
         vim.api.nvim_set_current_win(drawer.window)
         return
     end

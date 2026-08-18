@@ -15,9 +15,15 @@ local ownMapping = 'Cash.nvim: '
 -- handed it as well, or the key's own action happens a second time -- which,
 -- for a key that searches, is a second search and a jump that was meant to be
 -- suppressed
+---@param mode string
+---@param key string
+---@param callback fun()
+---@param prepend boolean true to run the callback before the old mapping
+---@param runsTheKey boolean true when the callback does the key's own work
+---@param desc string
 local addKeyTrigger = function(mode, key, callback, prepend, runsTheKey, desc)
     -- get the current keymap for the key
-    local keymap = vim.fn.maparg(key, mode, false, true)
+    local keymap = vim.fn.maparg(key, mode, false, true) --[[@as table]]
 
     -- a mapping this plugin made earlier is replaced rather than wrapped.
     -- Wrapped, a second setup would leave two of them on the key and the
@@ -80,6 +86,7 @@ local addKeyTrigger = function(mode, key, callback, prepend, runsTheKey, desc)
     end, { remap = true, desc = desc })
 end
 
+---@param cash cash.Module
 keymaps.setUpKeymaps = function(cash)
     -- set the cash register switching keymap. Use ?<number> to swap to the
     -- <number>-th search pattern
@@ -151,6 +158,8 @@ keymaps.setUpKeymaps = function(cash)
     -- but the jumplist has an entry by then and the search has already
     -- happened. disableStarPoundJump is a promise that the cursor stays where
     -- it is, so the one search there is has to be this one
+    ---@param key string one of *, #, g* and g#
+    ---@return fun()
     local starPoundAction = function(key)
         return function()
             -- read before the search, since the search is what would change
@@ -171,12 +180,13 @@ keymaps.setUpKeymaps = function(cash)
             -- as vim's own does. The messages go the same way -- vim's "search
             -- hit BOTTOM" is worth having when the cursor really did travel,
             -- and is a puzzle when it did not
-            local ok, err = pcall(
-                vim.cmd,
-                (stayPut and 'silent keepjumps normal! ' or 'normal! ')
-                    .. count
-                    .. key
-            )
+            local ok, err = pcall(function()
+                vim.cmd(
+                    (stayPut and 'silent keepjumps normal! ' or 'normal! ')
+                        .. count
+                        .. key
+                )
+            end)
 
             -- E348 when there is no word under the cursor, which is the
             -- ordinary way to press * by accident. Nothing has been searched
@@ -248,6 +258,7 @@ keymaps.setUpKeymaps = function(cash)
 
     -- one command with verbs, rather than a command per action, so that this
     -- plugin takes one name in the command namespace instead of nine
+    ---@type table<string, fun(argument?: string)>
     local verbs = {
         [''] = function()
             ui.open(cash)

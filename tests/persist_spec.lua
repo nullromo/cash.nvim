@@ -70,6 +70,7 @@ return function(h)
     local function notifications(body)
         local real = vim.notify
         local said = {}
+        ---@diagnostic disable-next-line: duplicate-set-field
         vim.notify = function(message)
             table.insert(said, message)
         end
@@ -213,12 +214,14 @@ return function(h)
         })
         h.check(
             'include-in-search reads back as on only when it is plainly on',
-            switches.cashRegisters[1].includeInSearch == true
+            switches ~= nil
+                and switches.cashRegisters[1].includeInSearch == true
                 and switches.cashRegisters[2].includeInSearch == true
                 and switches.cashRegisters[3].includeInSearch == false
                 and switches.cashRegisters[4].includeInSearch == false
                 and switches.cashRegisters[5].includeInSearch == false,
-            describe(switches.cashRegisters)
+            switches ~= nil and describe(switches.cashRegisters)
+                or 'nothing was deserialized'
         )
     end
 
@@ -465,8 +468,8 @@ return function(h)
             'a first run with nothing stored still saves what it did',
             stored ~= nil
                 and stored.cashRegisters[1].pattern == 'firstEverSearch',
-            stored == nil and 'nothing was stored'
-                or 'got [' .. describe(stored.cashRegisters) .. ']'
+            stored ~= nil and 'got [' .. describe(stored.cashRegisters) .. ']'
+                or 'nothing was stored'
         )
     end
 

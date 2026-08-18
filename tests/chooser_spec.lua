@@ -141,10 +141,12 @@ return function(h)
 
         h.check(
             'an unknown position is rejected at setup',
+            ---@diagnostic disable-next-line: assign-type-mismatch
             not pcall(cash.setup, { chooser = { position = 'middle' } })
         )
         h.check(
             'and an unknown style too',
+            ---@diagnostic disable-next-line: assign-type-mismatch
             not pcall(cash.setup, { chooser = { style = 'fancy' } })
         )
     end
@@ -184,6 +186,7 @@ return function(h)
 
         h.check(
             'a border of the wrong type is rejected',
+            ---@diagnostic disable-next-line: assign-type-mismatch
             not pcall(cash.setup, { chooser = { border = 7 } })
         )
 
@@ -428,7 +431,9 @@ return function(h)
 
         h.check(
             'a word it does not understand is refused, not thrown',
-            pcall(vim.cmd, 'Cash autohide sideways')
+            pcall(function()
+                vim.cmd('Cash autohide sideways')
+            end)
         )
         h.check('and changes nothing', not cash.opts.autoNoHighlight)
     end

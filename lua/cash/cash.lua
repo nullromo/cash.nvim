@@ -3,11 +3,42 @@ local jump = require('cash.jump')
 local persist = require('cash.persist')
 local util = require('cash.util')
 
+-- One of the nine cash registers. A record rather than a bare pattern, because
+-- includeInSearch belongs to the register and has to survive everything that
+-- rewrites the pattern.
+--
+-- Its color is deliberately not in here. That belongs to the slot, and lives in
+-- opts.colors.highlightColors, which is what makes moving a pattern from one
+-- cash register to another a way to recolor a search
+---@class cash.Register
+---@field pattern string as the user typed it, before any case flag is applied
+---@field includeInSearch boolean whether n and N visit its matches
+
+-- what the plugin knows about the cash registers. There are always nine, and
+-- one of them is always the working one
+---@class cash.State
+---@field currentIndex cash.RegisterIndex the working cash register
+---@field cashRegisters cash.Register[] nine of them, indexed 1 to 9
+
+-- The module require('cash') hands back.
+--
+-- Also the one argument the jump, ui and keymaps modules take: they are handed
+-- the module rather than the state, so that everything they do goes through the
+-- same operations a user's own mapping would call, and so that they can read
+-- the options without being given those separately.
+--
+-- setup is the exception to fields being defined here. It is added by init.lua,
+-- which is the file require('cash') actually resolves to
+---@class cash.Module
+---@field opts cash.ResolvedOptions set by setup, before anything can read it
+---@field state cash.State
+---@field setup fun(opts?: cash.Options)
 local CashModule = {}
 
 -- factory for default module state. A cash register is a record rather than a
 -- bare pattern, because includeInSearch belongs to the register and has to
 -- survive everything that rewrites the pattern
+---@return cash.State
 local generateDefaultState = function()
     local cashRegisters = {}
     for index = 1, 9 do
@@ -22,6 +53,8 @@ end
 
 -- complains about an index that does not name a cash register, and returns
 -- false so that callers can give up on one line
+---@param index any wherever it came from -- a command argument, a keypress
+---@return boolean rejected true when the index does not name a cash register
 local rejectIndex = function(index)
     if util.isCashRegisterIndex(index) then
         return false
@@ -44,6 +77,7 @@ end
 
 -- sets the given string as the search pattern for the current index. This
 -- function should be called whenever the user performs a search
+---@param searchString string
 CashModule.setSearch = function(searchString)
     -- the / register will be set when the user searches, but we also need a
     -- way to search for nothing to clear the search
@@ -66,6 +100,7 @@ end
 -- startup rather than during it -- which is what a plugin manager loading this
 -- plugin on an event gives -- because there, shada has already put the search
 -- register back and initializeData is about to write over it
+---@type string
 local searchRegisterBeforeSetup = ''
 
 -- initializes the state of the module
@@ -93,11 +128,16 @@ CashModule.centerWindow = function()
 end
 
 -- sets the working cash register
+---@param newIndex number|nil anything else is refused with a notification
 CashModule.setCashRegister = function(newIndex)
     -- there are only 9 cash registers
     if rejectIndex(newIndex) then
         return
     end
+
+    -- rejectIndex has settled that this names one of the nine, which is not
+    -- something the checker can work out for itself
+    ---@cast newIndex integer
 
     -- get the contents of the new cash register
     local newPattern = CashModule.state.cashRegisters[newIndex].pattern
@@ -134,6 +174,8 @@ end
 -- turning this off for it changes nothing until it stops being the working
 -- one. Highlighting is not affected either way: including a cash register
 -- changes where n goes, never what is lit
+---@param index number|nil anything else is refused with a notification
+---@param include boolean
 CashModule.setIncludeInSearch = function(index, include)
     if rejectIndex(index) then
         return
@@ -143,6 +185,7 @@ CashModule.setIncludeInSearch = function(index, include)
         or false
 end
 
+---@param index number|nil anything else is refused with a notification
 CashModule.toggleIncludeInSearch = function(index)
     if rejectIndex(index) then
         return
@@ -216,6 +259,7 @@ CashModule.showHighlighting = function()
 end
 
 -- empties one cash register, or the selected one if no index is given
+---@param index? number the working cash register when left out
 CashModule.clearCashRegister = function(index)
     index = index or CashModule.state.currentIndex
     if rejectIndex(index) then
@@ -290,6 +334,8 @@ end
 -- is only passed by the caller that runs after startup, where initializeData
 -- has already cleared the value this needs to see; left out, the search
 -- register is read as it stands
+---@param searchRegister? string what the search register held before setup
+--- touched it. Read as it stands when left out
 CashModule.restoreCashRegisters = function(searchRegister)
     if not CashModule.opts.persistCashRegisters then
         return

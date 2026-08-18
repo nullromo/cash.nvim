@@ -3,6 +3,81 @@ local util = require('cash.util')
 
 local options = {}
 
+-- a border in any form nvim_open_win accepts: one of its names, or a list of
+-- the pieces to build one from
+---@alias cash.Border string | table
+
+-- one cash register's colors. Either may be left out, and what is left out
+-- falls back to colors.defaultBG or colors.defaultFG
+---@class cash.HighlightColor
+---@field bg? string
+---@field fg? string
+
+-- The options as the user may write them: everything optional, because
+-- anything left out gets its default. This is the type to reach for when
+-- annotating a config, and it is what setup takes.
+--
+-- cash.ResolvedOptions below is the same set of options after resolve has
+-- filled in the defaults, where nothing is optional any more. The two are
+-- written out separately because that difference is the whole job resolve
+-- does, and every read inside the plugin is a read of the resolved shape
+---@class cash.Options
+---@field autoNoHighlight? boolean
+---@field centerAfterSearch? boolean
+---@field chooser? cash.ChooserOptions
+---@field colors? cash.ColorOptions
+---@field disableStarPoundJump? boolean
+---@field drawer? cash.DrawerOptions
+---@field manageJumps? boolean
+---@field persistCashRegisters? boolean
+---@field respectHLSearch? boolean
+
+---@class cash.ChooserOptions
+---@field style? cash.ChooserStyle
+---@field position? cash.Position
+---@field border? cash.Border
+
+---@class cash.ColorOptions
+---@field defaultBG? string
+---@field defaultFG? string
+---@field highlightColors? cash.HighlightColor[]
+
+---@class cash.DrawerOptions
+---@field border? cash.Border
+---@field position? cash.Position
+---@field detailPane? boolean
+
+-- the options once resolve has filled in every default. What cash.opts holds,
+-- and what everything inside the plugin reads
+---@class cash.ResolvedOptions : cash.Options
+---@field autoNoHighlight boolean
+---@field centerAfterSearch boolean
+---@field chooser cash.ResolvedChooserOptions
+---@field colors cash.ResolvedColorOptions
+---@field disableStarPoundJump boolean
+---@field drawer cash.ResolvedDrawerOptions
+---@field manageJumps boolean
+---@field persistCashRegisters boolean
+---@field respectHLSearch boolean
+
+---@class cash.ResolvedChooserOptions
+---@field style cash.ChooserStyle
+---@field position cash.Position
+---@field border cash.Border
+
+---@class cash.ResolvedColorOptions
+---@field defaultBG string
+---@field defaultFG string
+---@field highlightColors cash.HighlightColor[] always nine of them, one per
+--- cash register. The count is checked in validateOptions, since a list length
+--- is not something a type can carry
+
+---@class cash.ResolvedDrawerOptions
+---@field border cash.Border
+---@field position cash.Position
+---@field detailPane boolean
+
+---@type cash.ResolvedOptions
 options.defaultOptions = {
     -- clear every cash register's highlighting as soon as the cursor moves
     -- again. The search that turned it on moves the cursor itself, so that
@@ -78,6 +153,8 @@ options.defaultOptions = {
 
 -- checks the user's options and fills in a default for everything they did
 -- not specify. Returns a new table; the caller's own table is left alone
+---@param opts? cash.Options
+---@return cash.ResolvedOptions
 options.resolve = function(opts)
     opts = opts or {}
 
@@ -95,6 +172,13 @@ options.resolve = function(opts)
     )
 end
 
+-- throws unless every key in the given table is an option this plugin has,
+-- holding a value of the right shape.
+--
+-- Takes a plain table rather than cash.Options, because the keys it is looking
+-- for include the ones that are not options at all: that is the whole point of
+-- the catch-all at the bottom, and of the two renamed options above it
+---@param opts table exactly as the user wrote it
 options.validateOptions = function(opts)
     for key1, value1 in pairs(opts) do
         local name1 = 'opts'

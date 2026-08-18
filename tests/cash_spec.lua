@@ -282,6 +282,7 @@ return function(h)
 
         local notifications = 0
         local realNotify = vim.notify
+        ---@diagnostic disable-next-line: duplicate-set-field
         vim.notify = function(...)
             notifications = notifications + 1
             return realNotify(...)
@@ -392,6 +393,7 @@ return function(h)
         )
         h.check(
             'an option of the wrong type is rejected',
+            ---@diagnostic disable-next-line: assign-type-mismatch
             not pcall(cash.setup, { centerAfterSearch = 'yes' })
         )
 
