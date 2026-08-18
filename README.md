@@ -237,6 +237,25 @@ need, the `centerAfterSearch` option already does that for you.
 
 ## 💱 Customization
 
+The options are annotated for [lua-language-server](https://luals.github.io), so
+an editor with the correct setup will offer you the option names and flag
+invalid values. Options written apart from the call (like Lazy.nvim's `opts`
+field) are not handed to `setup` where you write them, so you can annotate the
+type there, like this:
+
+```lua
+{
+    'nullromo/cash.nvim',
+    ---@type cash.Options
+    opts = {
+        chooser = { style = 'asdf' }, -- 'asdf' is flagged here, since it's invalid
+    },
+    config = function(_, opts)
+        require('cash').setup(opts)
+    end,
+}
+```
+
 ### Default Options
 
 ```lua
