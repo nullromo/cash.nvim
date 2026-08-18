@@ -60,12 +60,20 @@ local describeMapping = function(keymap)
     return 'a lua callback with no description'
 end
 
--- one key this plugin maps, and what stops working when something else owns it
+-- one key this plugin maps.
+--
+-- api and otherwise are two halves of the same sentence, because a key this
+-- plugin no longer owns is not a key this plugin no longer works on. What
+-- replaced it may call the API itself, or wrap the mapping it replaced, and
+-- either of those keeps everything working. What the check knows is which
+-- mapping is on the key; what it cannot know is what that mapping does
 ---@class cash.ClaimedKey
 ---@field mode string
 ---@field key string
 ---@field label string the key as it should read in the report
----@field breaks string what the user loses, as a sentence of its own
+---@field api string the call a replacement has to make to keep this working
+---@field otherwise string what is lost when it does not, as a sentence
+---@field see? string a help tag worth reading about this key
 
 -- every key Cash.nvim maps. n and N are checked only when manageJumps is on,
 -- which is the one claim the user can call off
@@ -75,43 +83,55 @@ local claimedKeys = {
         mode = 'n',
         key = '?',
         label = '?',
-        breaks = 'The chooser is out of reach, though :Cash use <number> '
+        api = 'cash.setCashRegister()',
+        otherwise = 'the chooser is out of reach, though :Cash use <number> '
             .. 'still switches cash registers.',
+        see = 'cash-chooser',
     },
     {
         mode = 'n',
         key = '*',
         label = '*',
-        breaks = 'Searching with * no longer fills the working cash '
+        api = 'cash.setSearch()',
+        otherwise = 'searching with * will not fill the working cash '
             .. 'register.',
+        see = 'cash-star',
     },
     {
         mode = 'n',
         key = '#',
         label = '#',
-        breaks = 'Searching with # no longer fills the working cash '
+        api = 'cash.setSearch()',
+        otherwise = 'searching with # will not fill the working cash '
             .. 'register.',
+        see = 'cash-#',
     },
     {
         mode = 'n',
         key = 'g*',
         label = 'g*',
-        breaks = 'Searching with g* no longer fills the working cash '
+        api = 'cash.setSearch()',
+        otherwise = 'searching with g* will not fill the working cash '
             .. 'register.',
+        see = 'cash-gstar',
     },
     {
         mode = 'n',
         key = 'g#',
         label = 'g#',
-        breaks = 'Searching with g# no longer fills the working cash '
+        api = 'cash.setSearch()',
+        otherwise = 'searching with g# will not fill the working cash '
             .. 'register.',
+        see = 'cash-g#',
     },
     {
         mode = 'c',
         key = '<CR>',
         label = '<CR> in the command line',
-        breaks = 'A / search no longer fills the working cash register, '
-            .. 'and centerAfterSearch does nothing for it.',
+        api = 'cash.setSearch()',
+        otherwise = 'a / search will not fill the working cash register, and '
+            .. 'centerAfterSearch will not apply to it.',
+        see = 'cash-searching',
     },
 }
 
@@ -123,29 +143,69 @@ local jumpKeys = {
         mode = 'n',
         key = 'n',
         label = 'n',
-        breaks = 'Include-in-search stops working: n visits the matches of '
-            .. 'the working cash register only.',
+        api = 'cash.nextMatch()',
+        otherwise = 'include-in-search will not work through it, and n will '
+            .. 'visit the matches of the working cash register only.',
+        see = 'cash-tip-after-jump',
     },
     {
         mode = 'n',
         key = 'N',
         label = 'N',
-        breaks = 'Include-in-search stops working: N visits the matches of '
-            .. 'the working cash register only.',
+        api = 'cash.previousMatch()',
+        otherwise = 'include-in-search will not work through it, and N will '
+            .. 'visit the matches of the working cash register only.',
+        see = 'cash-tip-after-jump',
     },
 }
 
--- reports on one key: ours, somebody else's, or nobody's
+-- the command that names whatever put the current mapping on a key, which is
+-- the answer to the question this check has to leave open
+---@param claimed cash.ClaimedKey
+---@return string
+local verboseCommand = function(claimed)
+    return ':verbose ' .. claimed.mode .. 'map ' .. claimed.key
+end
+
+-- ' See :help {tag}', or nothing.
+--
+-- No full stop after the tag. :checkhealth renders its report as a help
+-- buffer, which turns the word after ":help " into a link, and a full stop
+-- stuck to the end of the tag goes inside the link and breaks it
+---@param claimed cash.ClaimedKey
+---@return string
+local seeAlso = function(claimed)
+    if claimed.see == nil then
+        return ''
+    end
+
+    return ' See :help ' .. claimed.see
+end
+
+-- reports on one key: ours, somebody else's, or nobody's.
+--
+-- Somebody else's is reported without a verdict on it, because there is no
+-- verdict to be had. A replacement that wraps the mapping it found works
+-- perfectly, which is what Cash.nvim's own addKeyTrigger does to other
+-- plugins; so does one that calls the API itself, which is what
+-- cash-tip-after-jump tells people to write. A replacement that calls vim's
+-- own key instead is broken. From here all three are the same thing: a
+-- mapping that is not this plugin's, doing something this plugin cannot see.
+-- So the report says which mapping is on the key, says what separates the
+-- working case from the broken one, and points at the command that answers it
 ---@param claimed cash.ClaimedKey
 local checkKey = function(claimed)
     local keymap = vim.fn.maparg(claimed.key, claimed.mode, false, true) --[[@as table]]
 
+    -- nothing on the key is the one case with no doubt in it. No mapping calls
+    -- anything, so this plugin's part of the key is definitely not happening
     if next(keymap) == nil then
         vim.health.warn(
             claimed.label .. ' is not mapped',
-            'Cash.nvim mapped it during setup and something has removed '
-                .. 'it. '
-                .. claimed.breaks
+            'Cash.nvim mapped it during setup and something has removed it, '
+                .. 'so '
+                .. claimed.otherwise
+                .. " Calling require('cash').setup() again puts it back."
         )
         return
     end
@@ -155,13 +215,20 @@ local checkKey = function(claimed)
         return
     end
 
-    vim.health.warn(
+    vim.health.info(
         claimed.label
-            .. ' belongs to something else: '
-            .. describeMapping(keymap),
-        'Whatever set it loaded after Cash.nvim did and replaced the '
-            .. 'mapping rather than wrapping it. '
-            .. claimed.breaks
+            .. ' is mapped by something else: '
+            .. describeMapping(keymap)
+            .. '. This is fine if that mapping calls '
+            .. claimed.api
+            .. " or wraps the mapping it replaced. If it calls Vim's own "
+            .. claimed.key
+            .. ' instead, '
+            .. claimed.otherwise
+            .. ' Run '
+            .. verboseCommand(claimed)
+            .. ' to see what set it.'
+            .. seeAlso(claimed)
     )
 end
 

@@ -875,8 +875,6 @@ Nothing in Cash.nvim raises an error when the colors don't render, when a cash
 register stops painting, or when a keymap conflicts. The healthcheck can help
 diagnose these problems. It reports:
 
-It reports:
-
   - Neovim's version and 'termguicolors', which are |cash-requirements|.
 
   - Whether |cash.setup()| has been called.

@@ -163,9 +163,9 @@ return function(h)
     fresh()
     vim.keymap.set('n', 'n', 'nzz', { desc = 'nvim-hlslens: next match' })
     local taken = report()
-    local takenEntry = find(taken, 'warn', 'n belongs to something else')
+    local takenEntry = find(taken, 'info', 'n is mapped by something else')
 
-    h.check('is reported as a warning', takenEntry ~= nil)
+    h.check('is reported', takenEntry ~= nil)
 
     h.check(
         'and the report names what took it',
@@ -175,14 +175,122 @@ return function(h)
     )
 
     h.check(
-        'and says what stopped working',
-        advice(takenEntry):find('Include-in-search', 1, true) ~= nil
+        'and says which call keeps it working',
+        takenEntry ~= nil
+            and takenEntry.message:find('cash.nextMatch()', 1, true) ~= nil
+    )
+
+    h.check(
+        'and says what is lost if it does not make that call',
+        takenEntry ~= nil
+            and takenEntry.message:find('include-in-search', 1, true) ~= nil
+    )
+
+    h.check(
+        'and points at the command that names the culprit',
+        takenEntry ~= nil
+            and takenEntry.message:find(':verbose nmap n', 1, true) ~= nil
     )
 
     h.check(
         'while the keys nobody took are still reported as ours',
         find(taken, 'ok', "N is Cash.nvim's") ~= nil
     )
+
+    -- The check knows which mapping is on a key. It cannot know what that
+    -- mapping does, and the two configurations below are both ones where the
+    -- key is not Cash.nvim's and everything works anyway. Calling either of
+    -- them broken is worse than saying nothing, because the second is what
+    -- |cash-tip-after-jump| tells people to write
+    h.group('a key that has been taken but still calls this plugin')
+
+    fresh()
+    vim.keymap.set('n', 'n', function()
+        cash.nextMatch()
+        vim.cmd('normal! zt')
+    end)
+    local viaApi = report()
+
+    h.check(
+        'is not called broken',
+        find(viaApi, 'warn', 'n ') == nil and find(viaApi, 'error', 'n ') == nil,
+        'the documented tip in cash-tip-after-jump reported: '
+            .. vim.inspect(vim.tbl_map(
+                function(entry)
+                    return entry.level .. ' ' .. entry.message
+                end,
+                vim.tbl_filter(function(entry)
+                    return (entry.level == 'warn' or entry.level == 'error')
+                        and entry.message:find('n ', 1, true) ~= nil
+                end, viaApi)
+            ))
+    )
+
+    h.group('a key another plugin has wrapped')
+
+    fresh()
+    local wrapped = vim.fn.maparg('*', 'n', false, true) --[[@as table]]
+    vim.keymap.set('n', '*', function()
+        wrapped.callback()
+    end, { desc = 'some-other-plugin: star' })
+    local viaWrapper = report()
+
+    h.check(
+        'is not called broken either',
+        find(viaWrapper, 'warn', '*') == nil
+            and find(viaWrapper, 'error', '*') == nil
+    )
+
+    h.check(
+        'and is still reported, so that the conflict is visible',
+        find(viaWrapper, 'info', '* is mapped by something else') ~= nil
+    )
+
+    -- every :help tag the mapping report offers has to be a tag that exists.
+    -- They are only ever printed, so a renamed section would go unnoticed
+    -- until somebody followed one
+    h.group('the help tags the mapping report points at')
+
+    fresh()
+    for _, key in ipairs({ '?', '*', '#', 'g*', 'g#', 'n', 'N' }) do
+        vim.keymap.set('n', key, '<Nop>', { desc = 'a stand-in' })
+    end
+    vim.keymap.set('c', '<CR>', '<CR>', { desc = 'a stand-in' })
+    local everyKeyTaken = report()
+
+    local tags = {}
+    for _, line in
+        ipairs(vim.fn.readfile(h.pluginRoot .. '/doc/tags') --[[@as string[] ]])
+    do
+        tags[vim.split(line, '\t')[1]] = true
+    end
+
+    local referenced, missing = 0, {}
+    for _, entry in ipairs(everyKeyTaken) do
+        for tag in entry.message:gmatch(':help ([^%s]+)') do
+            referenced = referenced + 1
+            if not tags[tag] then
+                table.insert(missing, tag)
+            end
+        end
+    end
+
+    h.check(
+        'the report points at one for every key',
+        referenced == 8,
+        'found ' .. referenced .. ' of 8'
+    )
+
+    h.check(
+        'and every one of them is a real tag',
+        #missing == 0,
+        'not in doc/tags: ' .. table.concat(missing, ', ')
+    )
+
+    -- the stand-ins would otherwise still be sitting on the keys
+    fresh()
+    pcall(vim.keymap.del, 'c', '<CR>')
+    cash.setup({})
 
     h.group('a key nobody has')
 
