@@ -22,7 +22,11 @@ jobs:
       contents: write
 
     steps:
+      # the whole history, since the release notes at the end are built from
+      # the commits between the previous tag and this one
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       # the version the plugin reports is the version bug reports will carry,
       # so a tag that disagrees with it is worth failing on. This runs first
@@ -61,13 +65,38 @@ jobs:
           # its own devices the action would put that in the rockspec
           license: MIT/Anti 996
 
-      # the notes are generated from the commits since the last tag, which is
-      # why there is no CHANGELOG.md to forget to update
+      # The notes are the commit subjects since the previous tag, which is why
+      # there is no CHANGELOG.md to forget to update.
+      #
+      # Built by hand rather than with gh's --generate-notes, which builds
+      # them out of merged pull requests. This repo commits to main, so there
+      # are none to find: v0.3.0 went out summarizing 47 commits as one merge
+      # from 2023. Commit subjects are only as good as the commit subjects,
+      # which is a reason to write them well rather than a reason to go back
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          previous="$(
+            git describe --tags --abbrev=0 --match 'v*' \
+              "${GITHUB_REF_NAME}^" 2>/dev/null || true
+          )"
+
+          if [ -n "${previous}" ]; then
+            {
+              echo "## What's changed since ${previous}"
+              echo
+              git log --reverse --pretty='- %s' \
+                "${previous}..${GITHUB_REF_NAME}"
+              echo
+              echo "**Full diff**:" \
+                "https://github.com/${GITHUB_REPOSITORY}/compare/${previous}...${GITHUB_REF_NAME}"
+            } > notes.md
+          else
+            echo 'The first release of Cash.nvim.' > notes.md
+          fi
+
           gh release create "${GITHUB_REF_NAME}" \
             --title "${GITHUB_REF_NAME}" \
-            --generate-notes \
+            --notes-file notes.md \
             --verify-tag
