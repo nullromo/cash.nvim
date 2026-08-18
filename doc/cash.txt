@@ -650,6 +650,14 @@ respectHLSearch                                         *cash-respectHLSearch*
 
 Everything below is a field of the table returned by `require('cash')`.
 
+cash.version                                                    *cash.version*
+
+    Which Cash.nvim this is, as a string like `'1.2.3'`. Cash.nvim follows
+    semantic versioning: a patch release fixes things, a minor release adds
+    them, and a major release is where anything users have configured or
+    mapped can change. Options that get renamed keep working, with a
+    |deprecated| warning specifying the version they stop working in.
+
 cash.setup({opts})                                              *cash.setup()*
 
     Validate {opts}, fill in the defaults, create the highlight groups, the
@@ -874,6 +882,8 @@ every search you make in the other eight.
 Nothing in Cash.nvim raises an error when the colors don't render, when a cash
 register stops painting, or when a keymap conflicts. The healthcheck can help
 diagnose these problems. It reports:
+
+  - Which version of Cash.nvim is installed. See |cash.version|.
 
   - Neovim's version and 'termguicolors', which are |cash-requirements|.
 

@@ -1,0 +1,73 @@
+name: Release
+
+# Releases are cut by pushing a tag, and nothing else. There is no version
+# bump commit to review and no release branch: the tag is the decision, and
+# everything below is what follows from it.
+#
+#     git tag -a v0.3.0 -m 'v0.3.0'
+#     git push origin v0.3.0
+#
+# The number in the tag has to match CashModule.version in lua/cash/cash.lua,
+# which the first step checks before anything is published anywhere
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    # for creating the GitHub release at the end
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # the version the plugin reports is the version bug reports will carry,
+      # so a tag that disagrees with it is worth failing on. This runs first
+      # because publishing to luarocks is not something that can be taken back
+      - name: Check the version constant matches the tag
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          declared="$(
+            sed -n "s/^CashModule\.version = '\(.*\)'$/\1/p" lua/cash/cash.lua
+          )"
+          if [ "${tag}" != "${declared}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} but lua/cash/cash.lua says" \
+              "${declared:-nothing}. Bump the constant, or tag the version it" \
+              "already names"
+            exit 1
+          fi
+          echo "releasing ${declared}"
+
+      # publishes to luarocks.org, which is how rocks.nvim installs this. The
+      # rockspec is generated from the tag and the repo: the version is the
+      # tag without its v, and doc/ and lua/ come along by default, which is
+      # what makes :help cash.nvim work from a rock install.
+      #
+      # This runs before the GitHub release rather than after it because it is
+      # the step that can fail on something outside this repo. Publishing the
+      # same version twice is skipped rather than failed, so a re-run after
+      # fixing whatever went wrong picks up where this left off
+      - name: Publish to luarocks.org
+        uses: lumen-oss/luarocks-tag-release@v7
+        env:
+          LUAROCKS_API_KEY: ${{ secrets.LUAROCKS_API_KEY }}
+        with:
+          summary: Extra search registers, each with its own highlight color
+          # GitHub reads the LICENSE file as NOASSERTION, since MIT with the
+          # Anti 996 clause is not one of the licenses it recognizes. Left to
+          # its own devices the action would put that in the rockspec
+          license: MIT/Anti 996
+
+      # the notes are generated from the commits since the last tag, which is
+      # why there is no CHANGELOG.md to forget to update
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            --verify-tag

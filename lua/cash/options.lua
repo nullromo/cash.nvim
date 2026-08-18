@@ -151,6 +151,68 @@ options.defaultOptions = {
     respectHLSearch = false,
 }
 
+-- one option that used to be called something else
+---@class cash.RenamedOption
+---@field newName string what to write instead
+---@field removedIn string the version the old name stops being read at all
+
+-- Every option this plugin has renamed, and what it is called now.
+--
+-- A config written against an older Cash.nvim keeps working: the value moves
+-- to the new name and the user is told once, rather than setup throwing on a
+-- name that was right when they wrote it. Throwing is what this used to do,
+-- and it makes every rename an upgrade that breaks Neovim on startup for
+-- anyone who has not read the release notes yet.
+--
+-- removedIn is a promise, so it goes in front of the user rather than only in
+-- a comment: the old name is read until that version and not after it. An
+-- entry whose removedIn has shipped comes out of this table, and the name
+-- goes back to being one the catch-all in validateOptions does not know
+---@type table<string, cash.RenamedOption>
+options.renamedOptions = {
+    prompt = { newName = 'chooser', removedIn = '1.0.0' },
+    ui = { newName = 'drawer', removedIn = '1.0.0' },
+}
+
+-- Moves anything written under an old option name over to the name it has
+-- now, warning once per name. Returns a new table; the caller's own table is
+-- left alone, since a plugin manager tends to hand setup the same opts table
+-- on every reload and rewriting it under them would be a surprise.
+--
+-- Only the top level is copied, which is as deep as a rename goes. What is
+-- underneath is shared with the caller's table, exactly as it was before this
+-- ran, and resolve is what stops that sharing reaching the defaults
+---@param opts table exactly as the user wrote it
+---@return table
+options.migrate = function(opts)
+    local migrated = vim.tbl_extend('force', {}, opts)
+
+    for oldName, renamed in pairs(options.renamedOptions) do
+        if migrated[oldName] ~= nil then
+            -- the backtrace is turned off because it points at this file,
+            -- which is not where the option the user has to go and change is
+            vim.deprecate(
+                'opts.' .. oldName,
+                'opts.' .. renamed.newName,
+                renamed.removedIn,
+                'Cash.nvim',
+                false
+            )
+
+            -- what is already written under the new name wins. Both names at
+            -- once is a config half way through the rename, and the new name
+            -- is the half that has been updated on purpose
+            if migrated[renamed.newName] == nil then
+                migrated[renamed.newName] = migrated[oldName]
+            end
+
+            migrated[oldName] = nil
+        end
+    end
+
+    return migrated
+end
+
 -- checks the user's options and fills in a default for everything they did
 -- not specify. Returns a new table; the caller's own table is left alone
 ---@param opts? cash.Options
@@ -158,8 +220,15 @@ options.defaultOptions = {
 options.resolve = function(opts)
     opts = opts or {}
 
+    -- an option written under a name this plugin used to have moves to the
+    -- name it has now, before anything below is handed a name it would only
+    -- be able to call invalid
+    opts = options.migrate(opts)
+
     -- validate what the user actually wrote, so that a complaint names one of
-    -- their options rather than one of ours
+    -- their options rather than one of ours. A renamed option is the one
+    -- exception: a complaint about it names the new name, which is the name
+    -- the deprecation warning has just told the user to write
     options.validateOptions(opts)
 
     -- the defaults are deep copied first because tbl_deep_extend hands back
@@ -177,7 +246,8 @@ end
 --
 -- Takes a plain table rather than cash.Options, because the keys it is looking
 -- for include the ones that are not options at all: that is the whole point of
--- the catch-all at the bottom, and of the two renamed options above it
+-- the catch-all at the bottom. Names this plugin used to have never reach it,
+-- because migrate has already turned them into names it has now
 ---@param opts table exactly as the user wrote it
 options.validateOptions = function(opts)
     for key1, value1 in pairs(opts) do
@@ -288,13 +358,6 @@ options.validateOptions = function(opts)
             util.checkType(value1, name1 .. '.persistCashRegisters', 'boolean')
         elseif key1 == 'respectHLSearch' then
             util.checkType(value1, name1 .. '.respectHLSearch', 'boolean')
-        -- the old names for chooser and drawer, caught here rather than left
-        -- to the catch-all below so that an upgrade is told what to write
-        -- instead of only that the option is not one this plugin has
-        elseif key1 == 'prompt' then
-            error('"opts.prompt" is now "opts.chooser" for Cash.nvim')
-        elseif key1 == 'ui' then
-            error('"opts.ui" is now "opts.drawer" for Cash.nvim')
         else
             error('"opts.' .. key1 .. '" ' .. constants.invalidOptionMessage)
         end

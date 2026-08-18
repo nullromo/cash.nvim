@@ -111,6 +111,11 @@ return function(h)
     local healthy = report()
 
     h.check(
+        'reports which Cash.nvim this is',
+        find(healthy, 'info', 'Cash.nvim ' .. cash.version) ~= nil
+    )
+
+    h.check(
         'reports the neovim version',
         find(healthy, 'ok', 'Neovim ' .. vim.version().major) ~= nil
     )

@@ -233,9 +233,13 @@ local checkKey = function(claimed)
 end
 
 -- the two documented requirements, which are the two ways this plugin can be
--- installed correctly and still look wrong
+-- installed correctly and still look wrong. The version this plugin is at
+-- leads, since it is the one line every bug report needs and the one the
+-- reporter is least able to work out for themselves
 local checkRequirements = function()
     vim.health.start('Requirements')
+
+    vim.health.info('Cash.nvim ' .. cash.version)
 
     local version = vim.version()
     local running = versionString()

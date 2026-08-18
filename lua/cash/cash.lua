@@ -35,6 +35,16 @@ local util = require('cash.util')
 ---@field setup fun(opts?: cash.Options)
 local CashModule = {}
 
+-- which Cash.nvim this is, as require('cash').version and as the first line of
+-- :checkhealth cash. A bug report that names a version is one that can be read
+-- against the code that produced it, which is the whole reason this is here
+-- rather than left to whatever the user's plugin manager last checked out.
+--
+-- This is the same number as the git tag, without the v. The release workflow
+-- checks that the two agree before it publishes anything, so a tag pushed
+-- without this line being bumped fails there rather than reaching luarocks
+CashModule.version = '0.3.0'
+
 -- factory for default module state. A cash register is a record rather than a
 -- bare pattern, because includeInSearch belongs to the register and has to
 -- survive everything that rewrites the pattern

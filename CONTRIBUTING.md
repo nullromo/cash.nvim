@@ -48,5 +48,31 @@ All three tests run on every pull request, in
 there (lua-language-server at 3.19.1, stylua at 2.5.2) so that a release of
 either cannot fail a pull request that changed nothing.
 
+## Releasing
+
+Cash.nvim follows [semantic versioning](https://semver.org). A patch release
+fixes things, a minor release adds them, and a major release is where anything a
+user has configured or mapped can change. An option that gets renamed keeps
+working through `options.renamedOptions`, which warns with `vim.deprecate` and
+specifies the version the old name stops being read in.
+
+A release is a tag and nothing else. There is no version bump commit and no
+release branch:
+
+1. Bump `CashModule.version` in [lua/cash/cash.lua](./lua/cash/cash.lua) to the
+   number being released.
+2. Tag it: `git tag -a v0.3.0 -m 'v0.3.0'`
+3. Push the tag: `git push origin v0.3.0`
+
+[.github/workflows/release.yml](./.github/workflows/release.yml) takes it from
+there. It checks that the tag and the constant agree, publishes to luarocks.org,
+and creates the GitHub release with notes generated from the commits since the
+last tag. That last part is why there is no changelog file to keep up to date.
+
+Publishing needs a `LUAROCKS_API_KEY` repository secret, from the API keys
+section of a luarocks.org account's settings. Without it the publish step fails
+and no release is created, which is recoverable: fix the secret and re-run the
+workflow. Everything that has already succeeded is skipped on a re-run.
+
 See [CONTEXT.md](./CONTEXT.md) for the words this project uses for its own
 concepts.
