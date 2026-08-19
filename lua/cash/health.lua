@@ -18,8 +18,8 @@ local persist = require('cash.persist')
 local health = {}
 
 -- the oldest neovim this plugin is documented to run on. |cash-requirements|
--- in doc/cash.txt says the same number, and the two have to keep saying the
--- same number
+-- in doc/cash.txt and the Neovim badge at the top of README.md say the same
+-- number, and all three have to keep saying the same number
 local minimumVersion = { major = 0, minor = 10 }
 
 -- the running neovim as major.minor.patch. Built out of the fields rather than

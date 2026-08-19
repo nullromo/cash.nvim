@@ -3,6 +3,9 @@
 **CASH**: **C**hoose from **A**vailable **S**earch **H**ighlights
 
 [![LuaRocks](https://img.shields.io/luarocks/v/nullromo/cash.nvim?logo=lua&color=purple)](https://luarocks.org/modules/nullromo/cash.nvim)
+[![CI](https://img.shields.io/github/actions/workflow/status/nullromo/cash.nvim/ci.yml?branch=main&logo=githubactions&logoColor=white&label=CI)](https://github.com/nullromo/cash.nvim/actions/workflows/ci.yml)
+[![Neovim](https://img.shields.io/badge/Neovim-0.10+-green?logo=neovim&logoColor=white)](https://neovim.io)
+[![License](https://img.shields.io/badge/license-MIT%2FAnti%20996-blue)](./LICENSE)
 
 ## 💰 Overview
 
