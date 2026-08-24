@@ -300,6 +300,49 @@ the nine names in `constants.positions` and turns it into a row and column. The
 command line and the status line are not free to be covered, so neither counts
 as space to place into.
 
+## The cash register under the cursor
+
+What <kbd>?</kbd><kbd>?</kbd> switches to, in `lua/cash/cursor.lua`.
+
+> The cash register under the cursor is the first one after the working cash
+> register with a match covering the cursor, wrapping round, with the working
+> cash register itself considered last.
+
+The user can see a color and cannot see a number, and nothing in vim can be
+asked what color a piece of text came out. So the question is turned round:
+every cash register's pattern is asked whether one of its matches covers the
+cursor. One pattern at a time, for the same reason <kbd>n</kbd> asks one at a
+time.
+
+Starting after the working cash register is what makes asking again walk
+through the registers that overlap here rather than landing on the same one
+every time. Considering the working one last is what makes "nothing matches
+here" and "you are already in the only one that does" different answers.
+Nothing on screen changes in either case, so the message is the only thing that
+tells them apart.
+
+Whether a match covers the cursor takes three searches:
+
+- **Backward, for a match start at or before the cursor.** A backward search
+  can only answer with a position at or before the cursor, so half of the
+  question is settled by asking it this way round.
+- **Forward from that start, for the end of a match.** The cursor is moved to
+  the start first, because vim's end-of-match search scans from the line the
+  cursor is on: asked from where the user actually is, it never sees a
+  multi-line match that began further up.
+- **Backward from that end, for the start again.** This is what makes the first
+  two answers describe one match rather than two. A pattern that matches
+  without covering anything (`^`, `\<`, or `^\s*` on a line with no indent) has
+  no end of its own, so the second search runs on to some later match's end and
+  the round trip comes back somewhere other than where it set off. Vim paints
+  nothing for those, and neither does this.
+
+The cursor goes back where it was before anything else can see it, so no
+`CursorMoved` comes of it and `autoNoHighlight` has nothing to react to.
+
+This is the one way of choosing a cash register that does not search for its
+pattern. The cursor is on one of its matches already.
+
 ## Highlight group
 
 The Vim highlight group carrying a cash register's colors, named

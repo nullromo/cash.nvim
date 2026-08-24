@@ -46,7 +46,7 @@ With [rocks.nvim](https://github.com/lumen-oss/rocks.nvim):
 ```
 
 Everything below is also available inside Neovim as [vimdoc](./doc/cash.txt):
-`:help cash.nvim`.
+`:help cash.nvim`. The docs have more details than this README.
 
 ## 💲 How to Use
 
@@ -91,6 +91,15 @@ working cash register, skipping over matches for other cash registers. If you
 want to jump between matches for a different cash register other than the
 working one, either switch back to that cash register and start jumping, or use
 the `includeInSearch` option.
+
+### Switch to the Cash Register Under the Cursor
+
+Sometimes you can see the color you want but you don't know the number of the
+cash register it belongs to. Move the cursor onto text that a cash register is
+highlighting and press <kbd>?</kbd><kbd>?</kbd> to switch to that cash register.
+
+`:Cash here` and `require('cash').setCashRegisterUnderCursor()` do the same
+thing.
 
 ### Include in Search
 
@@ -179,6 +188,7 @@ Cash.nvim takes a single user command, with verbs.
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `:Cash`                            | Open the cash drawer.                                                                                |
 | `:Cash use {n}`                    | Select cash register _n_, the same as <kbd>?</kbd>_n_.                                               |
+| `:Cash here`                       | Work in the cash register highlighting the text under the cursor, as <kbd>?</kbd><kbd>?</kbd> does.  |
 | `:Cash include {n}`                | Add cash register _n_ to the search set (`includeInSearch` = `true`).                                |
 | `:Cash exclude {n}`                | Remove cash register _n_ from the search set. (`includeInSearch` = `false`).                         |
 | `:Cash toggle {n}`                 | Toggle whether or not cash register _n_ is included in the search set.                               |

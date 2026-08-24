@@ -92,14 +92,15 @@ end
 ---@param cash cash.Module
 keymaps.setUpKeymaps = function(cash)
     -- set the cash register switching keymap. Use ?<number> to swap to the
-    -- <number>-th search pattern
+    -- <number>-th search pattern, or ?? for whichever cash register is
+    -- highlighting the text under the cursor
     vim.keymap.set('n', '?', function()
         -- the chooser shows which number is which color, so that the digit to
         -- press is on screen rather than in the user's memory. chooser.style =
         -- 'none' asks with a message instead, as this always used to
-        local index = ui.chooseRegister(cash)
+        local choice = ui.chooseRegister(cash)
 
-        if index == nil then
+        if choice == nil then
             vim.notify(
                 'Cash.nvim: you must enter a digit from 1 to 9 to choose a '
                     .. 'cash register'
@@ -107,7 +108,19 @@ keymaps.setUpKeymaps = function(cash)
             return
         end
 
-        cash.setCashRegister(index)
+        -- a second ? asks for the cash register that is highlighting the text
+        -- under the cursor, which is a question about the buffer rather than
+        -- about the nine
+        if choice == 'under-cursor' then
+            cash.setCashRegisterUnderCursor()
+            return
+        end
+
+        -- the chooser answers with one of the nine or with the one under the
+        -- cursor, and the other of the two has just been dealt with. The
+        -- checker cannot work that out for itself
+        ---@cast choice cash.RegisterIndex
+        cash.setCashRegister(choice)
     end, { desc = ownMapping .. 'choose the working cash register' })
 
     -- run custom functions after searching. Whenever the user performs a normal
@@ -271,6 +284,9 @@ keymaps.setUpKeymaps = function(cash)
         end,
         use = function(argument)
             cash.setCashRegister(tonumber(argument))
+        end,
+        here = function()
+            cash.setCashRegisterUnderCursor()
         end,
         include = function(argument)
             cash.setIncludeInSearch(tonumber(argument), true)

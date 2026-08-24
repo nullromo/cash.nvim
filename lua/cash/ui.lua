@@ -1104,11 +1104,15 @@ ui.openChooser = function(cash, style)
     return window
 end
 
--- shows the chooser and waits for one keypress. Returns the cash register the
--- user picked, or nil if they pressed anything else
+-- what the chooser can be answered with: one of the nine cash registers, or
+-- the one that is highlighting the text under the cursor
+---@alias cash.Choice cash.RegisterIndex | 'under-cursor'
+
+-- shows the chooser and waits for one keypress. Returns what the user picked,
+-- or nil if they pressed anything else
 ---@param cash cash.Module
----@return cash.RegisterIndex|nil index nil when the key was not a digit from 1
---- to 9
+---@return cash.Choice|nil choice nil when the key was neither a digit from 1
+--- to 9 nor a second ?
 ui.chooseRegister = function(cash)
     local window = nil
 
@@ -1133,7 +1137,16 @@ ui.chooseRegister = function(cash)
         return nil
     end
 
-    local index = tonumber(vim.fn.nr2char(character))
+    local key = vim.fn.nr2char(character)
+
+    -- a second ? asks for the cash register that is highlighting the text
+    -- under the cursor, which is the one question the nine digits cannot
+    -- answer: the color is on screen, and the number it belongs to is not
+    if key == '?' then
+        return 'under-cursor'
+    end
+
+    local index = tonumber(key)
     if not util.isCashRegisterIndex(index) then
         return nil
     end

@@ -84,8 +84,8 @@ local claimedKeys = {
         key = '?',
         label = '?',
         api = 'cash.setCashRegister()',
-        otherwise = 'the chooser is out of reach, though :Cash use <number> '
-            .. 'still switches cash registers.',
+        otherwise = 'the chooser and ?? are out of reach, though :Cash use '
+            .. '<number> and :Cash here still switch cash registers.',
         see = 'cash-chooser',
     },
     {

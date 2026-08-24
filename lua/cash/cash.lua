@@ -1,3 +1,4 @@
+local cursor = require('cash.cursor')
 local highlights = require('cash.highlights')
 local jump = require('cash.jump')
 local persist = require('cash.persist')
@@ -177,6 +178,53 @@ CashModule.setCashRegister = function(newIndex)
             end
         end
     end
+end
+
+-- switches to the cash register that is highlighting the text under the
+-- cursor.
+--
+-- What ?? and :Cash here do. The cursor stays where it is: it is already on a
+-- match of the cash register being switched to, and that match is the whole
+-- reason the user pressed the key, so this is the one way of choosing a cash
+-- register that does not search for its pattern.
+--
+-- Asking again walks through the cash registers matching here, since
+-- cursor.cashRegister starts looking after the working one. When the working
+-- cash register turns out to be the only one that matches, that is said rather
+-- than passed over in silence, because nothing on screen would have changed
+-- either way
+CashModule.setCashRegisterUnderCursor = function()
+    local index = cursor.cashRegister(
+        CashModule.state.cashRegisters,
+        CashModule.state.currentIndex
+    )
+
+    if index == nil then
+        vim.notify(
+            'Cash.nvim: no cash register matches the text under the cursor'
+        )
+        return
+    end
+
+    if index == CashModule.state.currentIndex then
+        vim.notify(
+            'Cash.nvim: already working in the only cash register that '
+                .. 'matches here'
+        )
+        return
+    end
+
+    -- the pattern was matched against the buffer to get here, so it is neither
+    -- empty nor one vim refuses, and the search register can have it as it
+    -- stands
+    CashModule.state.currentIndex = index
+    vim.fn.setreg('/', CashModule.state.cashRegisters[index].pattern)
+
+    -- the switch is only visible while the highlighting is on: the text under
+    -- the cursor goes from this cash register's own color to the Search
+    -- highlight, and the cash register left behind picks up a match of its
+    -- own. Nothing else here would turn it back on, since there is no search
+    CashModule.showHighlighting()
 end
 
 -- switches whether n and N visit this cash register's matches. Note that the

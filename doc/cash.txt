@@ -61,6 +61,9 @@ Call |cash.setup()| once, then:
   - Search for something with |/|. It lights up in cash register 1's color.
   - Press `?` to make the chooser appear. Press `2`, and `2` becomes the
     working cash register. See |cash-chooser|.
+  - Move the cursor onto text lit in another cash register's color and press
+    `??` to work in whichever cash register that turns out to be. See
+    |cash-??|.
   - Search for something else. The first search is still lit in its own color.
   - |n| and |N| move between the matches of the working cash register only,
     unless you ask for more. See |cash-include-in-search|.
@@ -281,8 +284,9 @@ don't want this plugin to mess with |n| and |N| at all.
 8. THE CHOOSER                                                  *cash-chooser*
 
 Pressing `?` in normal mode brings up the chooser and waits for one keypress.
-A digit from 1 to 9 makes that cash register the working one; anything else
-closes the chooser.
+A digit from 1 to 9 makes that cash register the working one, a second `?`
+makes the cash register under the cursor the working one (see |cash-??|), and
+anything else closes the chooser.
 
 The chooser looks like this: >
 
@@ -303,7 +307,8 @@ off and asks with a message on the command line. `chooser.position` and
 
 Selecting a cash register also searches for its pattern, so the cursor moves
 to the next match the way it would after a search. Selecting an empty one
-clears |quote_/| and leaves the cursor alone.
+clears |quote_/| and leaves the cursor alone. `??` is the one exception: it
+doesn't search because the cursor is on a match already.
 
 
 ==============================================================================
@@ -433,6 +438,12 @@ a message rather than acted on.
 :Cash use {n}           Make cash register {n} the working one. The same as
                         pressing `?` followed by {n}.
 
+                                                                  *:Cash-here*
+:Cash here              Make the cash register that is highlighting the text
+                        under the cursor the working one, without moving the
+			cursor. This is the same as pressing `??`. See
+			|cash-??|.
+
                                                                *:Cash-include*
 :Cash include {n}       Add cash register {n} to the search set.
                         See |cash-include-in-search|.
@@ -475,6 +486,27 @@ a message rather than acted on.
                         which becomes the working cash register. See
                         |cash-chooser|. This replaces Vim's backward search;
                         see |cash-compatibility|.
+
+                                                                     *cash-??*
+??                      Normal mode. Select the cash register that is
+			highlighting the text under the cursor. This is like
+			asking "which number is this color?"
+
+                        The cursor does not move and nothing is searched for.
+
+			A cash register only counts where it is really
+			painting. Empty registers. registers holding a pattern
+			Vim cannot compile, and registers whose pattern
+			matches without covering anything (`^`, or `^\s*` on a
+			line with no indent) are all passed over. When nothing
+			matches under the cursor, a message prints and the
+			working cash register is left alone.
+
+			Where more than one cash register matches the text
+			under the cursor, pressing `??` again moves on to the
+			next one, wrapping around.
+
+                        |:Cash-here| does the same thing.
 
                                                              *cash-n* *cash-N*
 n                       Normal mode. Move to the next match from among the
@@ -682,6 +714,14 @@ cash.setCashRegister({index})                         *cash.setCashRegister()*
     Make cash register {index} the working one and search for its pattern.
     The same as `?{index}` and |:Cash-use|. {index} must be a whole number
     from 1 to 9; anything else is refused with a message.
+
+cash.setCashRegisterUnderCursor()          *cash.setCashRegisterUnderCursor()*
+
+    Select the cash register that is highlighting the text under the cursor.
+    The same as `??` and |:Cash-here|. The cursor stays where it is and
+    nothing is searched for. Calling it again walks through the cash registers
+    matching under the cursor if there are multiple; a call that finds nothing
+    there changes nothing. See |cash-??|.
 
 cash.setIncludeInSearch({index}, {include})        *cash.setIncludeInSearch()*
 cash.toggleIncludeInSearch({index})             *cash.toggleIncludeInSearch()*
