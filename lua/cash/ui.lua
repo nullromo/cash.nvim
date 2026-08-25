@@ -11,6 +11,7 @@
 -- a mapping, because the line is nothing but the pattern. Only the commands
 -- that change the *number* of lines are a problem, and those are guarded.
 
+local cursor = require('cash.cursor')
 local jump = require('cash.jump')
 local util = require('cash.util')
 
@@ -951,6 +952,10 @@ end
 --
 -- An empty cash register still shows its number, in its own color as text
 -- rather than as a swatch. It is worth knowing which colors are free.
+--
+-- The cash register a second ? would switch to -- the one highlighting the
+-- text under the cursor -- is marked with a ? after its number, so that the
+-- answer is on screen before the key is pressed rather than after it.
 
 -- a grid cell is the marker, the number, a space and the pattern
 local CHOOSER_COLUMN = 12
@@ -959,9 +964,11 @@ local CHOOSER_PATTERN = CHOOSER_COLUMN - 5
 ---@param row cash.Row
 ---@param cash cash.Module
 ---@param index cash.RegisterIndex
+---@param underCursor cash.RegisterIndex|nil the one a second ? would switch
+--- to, which gets a ? of its own
 ---@param patternWidth? integer left out for the strip, which has room for the
 --- number only
-local chooserCell = function(row, cash, index, patternWidth)
+local chooserCell = function(row, cash, index, underCursor, patternWidth)
     local register = cash.state.cashRegisters[index]
     local filled = register.pattern ~= ''
 
@@ -976,9 +983,12 @@ local chooserCell = function(row, cash, index, patternWidth)
         )
     end
 
+    -- the ? marking the cash register under the cursor goes in the space the
+    -- number already had after it, so that a marked cell is exactly as wide as
+    -- an unmarked one and nothing shifts about as the cursor moves
     addChunk(
         row,
-        ' ' .. index .. ' ',
+        ' ' .. index .. (index == underCursor and '?' or ' '),
         filled and ('CashRegister' .. index) or ('CashRegisterFg' .. index)
     )
 
@@ -1007,11 +1017,19 @@ end
 local chooserRows = function(cash, style)
     local rows = {}
 
+    -- asked once rather than once per cell, and asked here rather than in
+    -- openChooser because this runs while the user's own window is still the
+    -- current one. The chooser's window is opened without being entered, but
+    -- the answer is about where the cursor is, so it is worked out before
+    -- there is any other window it could be read from
+    local underCursor =
+        cursor.cashRegister(cash.state.cashRegisters, cash.state.currentIndex)
+
     if style == 'strip' then
         local row = newRow()
         addChunk(row, '  ')
         for index = 1, 9 do
-            chooserCell(row, cash, index)
+            chooserCell(row, cash, index, underCursor)
             if index < 9 then
                 addChunk(row, ' ')
             end
@@ -1025,7 +1043,13 @@ local chooserRows = function(cash, style)
         local row = newRow()
         addChunk(row, '  ')
         for column = 0, 2 do
-            chooserCell(row, cash, line * 3 + column + 1, CHOOSER_PATTERN)
+            chooserCell(
+                row,
+                cash,
+                line * 3 + column + 1,
+                underCursor,
+                CHOOSER_PATTERN
+            )
             padRowTo(row, 2 + (column + 1) * CHOOSER_COLUMN)
         end
         -- a pattern that fills its column exactly would otherwise sit against

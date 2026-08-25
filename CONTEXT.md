@@ -290,6 +290,13 @@ Its whole job is to answer _which number is the green one_ on screen rather
 than from memory. That is why an empty cash register still shows its number,
 in its own color — knowing which colors are free is part of the answer.
 
+The cash register a second <kbd>?</kbd> would switch to is marked with a `?`
+after its number. It takes the space the number already had after it, so a
+marked cell is the same width as an unmarked one and nothing shifts. Working
+the answer out belongs to `chooserRows` rather than to `ui.openChooser`,
+because it is a question about where the cursor is and that has to be asked
+while the user's own window is still the current one.
+
 `ui.openChooser` draws it and hands back the window; `ui.chooseRegister` is
 what waits for the keypress. They are separate because `getchar()` blocks the
 event loop, so anything that wants to look at what was drawn — a test, a

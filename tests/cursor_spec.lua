@@ -65,6 +65,19 @@ return function(h)
         return cash.state.currentIndex
     end
 
+    -- opens the chooser, hands its lines back, and puts it away again
+    local function chooserLines(style)
+        local window = ui.openChooser(cash, style)
+        local lines = vim.api.nvim_buf_get_lines(
+            vim.api.nvim_win_get_buf(window),
+            0,
+            -1,
+            false
+        )
+        vim.api.nvim_win_close(window, true)
+        return lines
+    end
+
     -- runs the given function with the notifications it makes collected
     -- rather than printed
     local function notifications(action)
@@ -282,6 +295,60 @@ return function(h)
             'a multi-line match counts on the lines it carries on to',
             working() == 2,
             'working in ' .. working()
+        )
+    end
+
+    ----------------------------------------------------------------------
+
+    h.group('the chooser marking the cash register under the cursor')
+
+    do
+        fresh()
+        cash.setSearch('foo')
+        store(2, 'bar')
+
+        at(1, 4)
+        local unmarked = chooserLines('grid')
+        at(1, 5)
+        local marked = chooserLines('grid')
+
+        h.check(
+            'the cash register under the cursor gets a ? after its number',
+            marked[1]:find('2?', 1, true) ~= nil,
+            vim.inspect(marked)
+        )
+        h.check(
+            'and no other cash register does',
+            marked[1]:find('1?', 1, true) == nil,
+            vim.inspect(marked)
+        )
+        h.check(
+            'nothing is marked where nothing matches',
+            unmarked[1]:find('?', 1, true) == nil,
+            vim.inspect(unmarked)
+        )
+        h.check(
+            'the mark takes the space the number already had after it',
+            vim.fn.strdisplaywidth(marked[1])
+                == vim.fn.strdisplaywidth(unmarked[1]),
+            vim.fn.strdisplaywidth(marked[1])
+                .. ' against '
+                .. vim.fn.strdisplaywidth(unmarked[1])
+        )
+
+        at(1, 5)
+        h.check(
+            'the strip marks it too',
+            chooserLines('strip')[1]:find('2?', 1, true) ~= nil,
+            vim.inspect(chooserLines('strip'))
+        )
+
+        at(1, 2)
+        h.check(
+            'the working cash register is marked when it is the only one '
+                .. 'matching there',
+            chooserLines('grid')[1]:find('1?', 1, true) ~= nil,
+            vim.inspect(chooserLines('grid'))
         )
     end
 

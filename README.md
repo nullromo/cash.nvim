@@ -73,11 +73,15 @@ registers in their own colors, so you can see which number is the one you want.
 
 ```
 ╭─ Choose a cash register ───────────────╮
-│  ▸ 1  foo      2  bar      3  \<baz\>  │
+│  ▸ 1  foo      2? bar      3  \<baz\>  │
 │    4  ·        5  ·        6  ·        │
 │    7  ·        8  ·        9  TODO     │
 ╰────────────────────────────────────────╯
 ```
+
+The `▸` marks the working cash register and `·` marks an empty one. The `?`
+after a number marks the cash register that is highlighting the text under the
+cursor, which is the one that <kbd>?</kbd> switches to.
 
 The look of the chooser can be customized via the `chooser.style` option.
 

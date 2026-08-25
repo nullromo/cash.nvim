@@ -291,12 +291,14 @@ anything else closes the chooser.
 The chooser looks like this: >
 
     ╭─ Choose a cash register ───────────────╮
-    │  ▸ 1  foo      2  bar      3  \<baz\>  │
+    │  ▸ 1  foo      2? bar      3  \<baz\>  │
     │    4  ·        5  ·        6  ·        │
     │    7  ·        8  ·        9  TODO     │
     ╰────────────────────────────────────────╯
 <
-The `▸` marks the working cash register, and `·` marks an empty one.
+The `▸` marks the working cash register, and `·` marks an empty one. The `?`
+after a number marks the cash register that is highlighting the text under the
+cursor, which is the one that `?` switches to; see |cash-??|.
 
 The `chooser.style` setting determines what the looks like: `'grid'` lays the
 nine cash registers out in a grid and shows what each one holds, `'strip'`
