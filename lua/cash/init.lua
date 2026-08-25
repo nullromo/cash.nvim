@@ -27,6 +27,9 @@ cashModule.setup = function(opts)
     -- bring any windows that are already open in line with the state
     cashModule.updateHighlights()
 
+    -- and draw the indicator, or take away the one a previous setup drew
+    cashModule.updateIndicator()
+
     -- enable hlsearch
     if not opts.respectHLSearch then
         vim.opt.hlsearch = true

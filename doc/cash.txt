@@ -22,16 +22,17 @@ CONTENTS                                    *cash-contents* *cash.nvim* *cash*
   7. Include in search .............................. |cash-include-in-search|
   8. The chooser .............................................. |cash-chooser|
   9. The cash drawer ........................................... |cash-drawer|
-  10. Telescope.nvim picker .................................... |cash-picker|
-  11. Commands ............................................... |cash-commands|
-  12. Default mappings ....................................... |cash-mappings|
-  13. Configuration ..................................... |cash-configuration|
-  14. Lua API ..................................................... |cash-api|
-  15. Highlight groups ............................... |cash-highlight-groups|
-  16. Compatibility ..................................... |cash-compatibility|
-  17. Tips ....................................................... |cash-tips|
-  18. Troubleshooting ................................. |cash-troubleshooting|
-  19. About ..................................................... |cash-about|
+  10. The indicator ......................................... |cash-indicator|
+  11. Telescope.nvim picker .................................... |cash-picker|
+  12. Commands ............................................... |cash-commands|
+  13. Default mappings ....................................... |cash-mappings|
+  14. Configuration ..................................... |cash-configuration|
+  15. Lua API ..................................................... |cash-api|
+  16. Highlight groups ............................... |cash-highlight-groups|
+  17. Compatibility ..................................... |cash-compatibility|
+  18. Tips ....................................................... |cash-tips|
+  19. Troubleshooting ................................. |cash-troubleshooting|
+  20. About ..................................................... |cash-about|
 
 
 ==============================================================================
@@ -430,7 +431,94 @@ an error.
 
 
 ==============================================================================
-10. THE TELESCOPE PICKER                        *cash-picker* *cash-telescope*
+10. THE INDICATOR                                             *cash-indicator*
+
+The indicator continually displays the working cash register. It is off by
+default. It can be turned on using the `indicator = { show = true }` option or
+the |:Cash-indicator| command.
+
+The brackets are the indicator's border, which is why it is drawn without one.
+`indicator.brackets` takes the name of a pair, or a pair of your own:
+>lua
+    indicator = { brackets = 'short-corner' }              -- ⌜3⌟
+    indicator = { brackets = { left = '(', right = ')' } } -- (3)
+<
+The named pairs are all a single cell on each side. See
+|cash-indicator.brackets| for the list.
+
+The `indicator.style` option determines what the indicator contains.
+`'current'` shows only the working cash register. `'strip'` shows all nine of
+them.
+
+On the strip, the working cash register is highlighted in its color. Other
+registers that hold a patterns are shown in their colors, and an empty one is
+drawn in |hl-Comment|. 
+
+The `indicator.pattern` option adds the working cash register's pattern, cut short at
+`indicator.patternWidth` columns. `indicator.position` puts the indicator in one
+of the same nine places the popups use. See |cash-configuration|.
+
+------------------------------------------------------------------------------
+IN A STATUS LINE                                   *cash-indicator-statusline*
+
+|cash.statusline()| returns the indicator label in status line syntax, for
+'statusline', 'winbar' or 'tabline':
+>lua
+    vim.o.statusline = "%f %m%=%{%v:lua.require'cash'.statusline()%}"
+<
+Two things about that line are not optional.
+
+It uses `%{%` `%}` rather than `%{` `%}`. Vim re-parses the result of the
+`%{%` form as status line items, which is what makes the highlights inside it
+mean anything. In a plain `%{` `%}` they are drawn as the text they are.
+
+This is an expression rather than a concatenation. The following does not
+work:
+>lua
+    -- wrong: computed once when your config is read and never updates
+    vim.o.statusline = '%f %m%=' .. require('cash').statusline()
+<
+For a status line plugin that takes text and a highlight group rather than a
+string of items, |cash.label()| hands the two back separately:
+>lua
+    -- lualine
+    sections = {
+        lualine_x = {
+            {
+                function()
+                    return require('cash').label({ style = 'current' }).text
+                end,
+                color = function()
+                    return require('cash').label().group
+                end,
+            },
+        },
+    }
+<
+Cash.nvim never writes 'statusline', 'winbar' or 'tabline' itself.
+
+------------------------------------------------------------------------------
+WHAT THE WINDOW DOES                                   *cash-indicator-window*
+
+The indicator creates one floating window per tab page. It is not focusable,
+so |CTRL-W| and |:wincmd| never land on it. It displays below other floating
+windows, so it never covers another menu.
+
+The window is kept out of the search highlighting, the way the drawer, the
+chooser, and the picker are.
+
+It does not follow |v:hlsearch|, the way the cash registers themselves do.
+|:nohlsearch|, |:Cash-hide|, and `autoNoHighlight` take the colors off the
+screen, but not off the indicator.
+
+Cash.nvim redraws the indicator whenever Vim is about to wait for a key, so
+anything that changes the working cash register brings it up to date.
+|cash.updateIndicator()| exists in case you need to make a change in another
+context.
+
+
+==============================================================================
+11. THE TELESCOPE PICKER                        *cash-picker* *cash-telescope*
 
 With Telescope.nvim installed, `:Telescope cash_registers` lists all nine cash
 registers and filters them as you type. Selecting one makes it the working
@@ -481,7 +569,7 @@ picker is invoked.
 
 
 ==============================================================================
-11. COMMANDS                                                   *cash-commands*
+12. COMMANDS                                                   *cash-commands*
 
 Cash.nvim takes one command with verbs, rather than a command per action. All
 of the verbs and their arguments complete with |c_CTRL-D| and |'wildmenu'|.
@@ -503,6 +591,9 @@ a message rather than acted on.
                         under the cursor the working one, without moving the
 			cursor. This is the same as pressing `??`. See
 			|cash-??|.
+
+                                                                 *:Cash-where*
+:Cash where             Print the working cash register and what it holds.
 
                                                                *:Cash-include*
 :Cash include {n}       Add cash register {n} to the search set.
@@ -535,11 +626,17 @@ a message rather than acted on.
                         the cursor moves, where {arg} is `on`, `off` or
                         `toggle`. Toggles if {arg} is omitted. This command
 			modifies the `autoNoHighlight` option.
+
+                                                             *:Cash-indicator*
+:Cash indicator [{arg}] Show or hide the indicator, where {arg} is `on`, `off`
+                        or `toggle`. Toggles if {arg} is omitted. This command
+                        modifies the `indicator.show` option. See
+                        |cash-indicator|.
 ------------------------------------------------------------------------------
 
 
 ==============================================================================
-12. DEFAULT MAPPINGS                                           *cash-mappings*
+13. DEFAULT MAPPINGS                                           *cash-mappings*
 
                                                                       *cash-?*
 ?                       Normal mode. Open the chooser and wait for a digit,
@@ -597,7 +694,7 @@ applied.
 
 
 ==============================================================================
-13. CONFIGURATION                                         *cash-configuration*
+14. CONFIGURATION                                         *cash-configuration*
 
 Options are passed to |cash.setup()|. Anything left out keeps its default;
 anything misspelled or of the wrong type raises an error naming the option,
@@ -633,6 +730,14 @@ Defaults: >lua
             border = 'rounded',
             position = 'center',
             detailPane = false,
+        },
+        indicator = {
+            show = false,
+            style = 'current',
+            position = 'bottom-right',
+            pattern = false,
+            patternWidth = 20,
+            brackets = 'heavy-angle',
         },
         manageJumps = true,
         persistCashRegisters = true,
@@ -710,6 +815,64 @@ drawer.detailPane                                     *cash-drawer.detailPane*
     Pressing `?` from the drawer toggles it either way. Needs a window at
     least 102 columns wide. See |cash-detail-pane|.
 
+indicator.show                                           *cash-indicator.show*
+                        boolean, default `false`
+
+    Whether the indicator is on screen: a small window the displays the
+    working cash register. Switchable with |:Cash-indicator|. Off by default,
+    since it is a persistent overlay on your own text. See |cash-indicator|.
+
+indicator.style                                         *cash-indicator.style*
+                        `'current'` or `'strip'`, default `'current'`
+
+    What the indicator says. `'current'` is only the working cash register.
+    `'strip'` is all nine cash registers with the working one highlighted. See
+    |cash-indicator|.
+
+indicator.position                                   *cash-indicator.position*
+                        string, default `'bottom-right'`
+
+    Where the indicator is displayed on the screen. See
+    |cash-chooser.position|.
+
+indicator.pattern                                     *cash-indicator.pattern*
+                        boolean, default `false`
+
+    Whether the indicator shows the working cash register's pattern as well as
+    its number.
+
+indicator.patternWidth                           *cash-indicator.patternWidth*
+                        number, default `20`
+
+    How much of the working cash register's pattern is shown before being
+    truncated with a `~`. Must be a whole number greater than 0.
+    `indicator.pattern` hides the pattern.
+
+indicator.brackets                                   *cash-indicator.brackets*
+                        string or table, default `'heavy-angle'`
+
+    What is displayed around the indicator. These act as a border.
+
+    Can be any of these pre-defined bracket pairs by name: >lua
+
+        'ascii'                 [3]
+        'angle'                 ‹3›
+        'heavy-angle'           ❰3❱
+        'box-light'             │3│
+        'box-heavy'             ┃3┃
+        'small-cap'             ▏3▕
+        'large-cap'             ▌3▐
+        'short-corner'          ⌜3⌟
+        'tall-corner'           ｢3｣
+        'double-square'         ⟬3⟭
+        'white-square'          ⟦3⟧
+<
+    or a pair of your own, which is any two strings: >lua
+
+        indicator = { brackets = { left = '(', right = ')' } }
+<
+    Both halves of a pair are required.
+
 manageJumps                                                 *cash-manageJumps*
                         boolean, default `true`
 
@@ -742,7 +905,7 @@ respectHLSearch                                         *cash-respectHLSearch*
 
 
 ==============================================================================
-14. LUA API                                                         *cash-api*
+15. LUA API                                                         *cash-api*
 
 Everything below is a field of the table returned by `require('cash')`.
 
@@ -831,6 +994,44 @@ cash.updateHighlights()                              *cash.updateHighlights()*
     highlighting, so it is only needed for something that changes the state
     behind its back.
 
+cash.label([{overrides}])                                       *cash.label()*
+
+    Returns what the indicator would say, as data: >lua
+
+        local label = require('cash').label()
+        label.index     -- 1 to 9, the working cash register
+        label.pattern   -- what it holds
+        label.text      -- '❰3❱', the whole label as plain text
+        label.group     -- 'CashRegister3', its highlight group
+        label.chunks    -- the text split at every change of color
+<
+    `group` is the working cash register's own color, and the whole answer for
+    the `style = 'current'` indicator. For the `style = 'strip'` indicator,
+    each of the nine numbers has its own color, and `chunks` carries them:
+    every one is a `{text, group}` pair, which is the shape |nvim_echo()| and
+    `virt_text` both take.
+
+    {overrides} is the `indicator` options with something changed. For
+    example, `label({ pattern = true })` gives the pattern whether or not the
+    indicator is configured to show it. It does not modify the indicator
+    itself.
+
+    This should be used to build a status line component. See
+    |cash-indicator-statusline|.
+
+cash.statusline([{overrides}])                             *cash.statusline()*
+
+    The same thing as |cash.label()|, but in statusline syntax, for
+    'statusline', 'winbar' or 'tabline'. Has to be embedded as `%{%` `%}`
+    rather than concatenated; see |cash-indicator-statusline|.
+
+cash.updateIndicator()                                *cash.updateIndicator()*
+
+    Bring the indicator in line with the current state. Idempotent. Cheap when
+    nothing has changed. Cash.nvim calls this whenever Vim is about to wait
+    for a key, so it is only needed for a change made somewhere that cannot
+    reach.
+
 cash.setSearch({pattern})                                   *cash.setSearch()*
 
     Store {pattern} in the working cash register without searching for it.
@@ -854,7 +1055,7 @@ cash.opts                                                          *cash.opts*
 
 
 ==============================================================================
-15. HIGHLIGHT GROUPS                                   *cash-highlight-groups*
+16. HIGHLIGHT GROUPS                                   *cash-highlight-groups*
 
                                                              *hl-CashRegister*
 CashRegister1 ... CashRegister9
@@ -867,10 +1068,10 @@ CashRegister1 ... CashRegister9
 CashRegisterFg1 ... CashRegisterFg9
 			The same color as a foreground rather than as a
 			swatch, for the places a full swatch would be too
-                        heavy: the include dot, the marker and the match
-                        count. A color chosen to be a background is not
-                        always legible as text, so anything too dark is
-                        lightened until it is.
+                        heavy: the include dot, the marker, the match count,
+                        and the indicator's brackets. A color chosen to be a
+                        background is not always legible as text, so anything
+                        too dark is lightened until it is.
 
 |hl-Search|             Re-colored to the working cash register's color, and
                         re-colored again whenever the working cash register
@@ -888,7 +1089,7 @@ Setting any of these groups yourself is possible but pointless: Cash.nvim sets
 
 
 ==============================================================================
-16. COMPATIBILITY                                         *cash-compatibility*
+17. COMPATIBILITY                                         *cash-compatibility*
 
 THE ? KEY IS TAKEN                                      *cash-compat-question*
 
@@ -930,7 +1131,7 @@ offsets work normally.
 
 
 ==============================================================================
-17. TIPS                                                           *cash-tips*
+18. TIPS                                                           *cash-tips*
 
 These are not part of Cash.nvim, but they go well with it.
 
@@ -978,7 +1179,7 @@ every search you make in the other eight.
 
 
 ==============================================================================
-18. TROUBLESHOOTING                                     *cash-troubleshooting*
+19. TROUBLESHOOTING                                     *cash-troubleshooting*
 
 >vim
     :checkhealth cash
@@ -1010,7 +1211,7 @@ The healthcheck does not modify anything.
 
 
 ==============================================================================
-19. ABOUT                                                         *cash-about*
+20. ABOUT                                                         *cash-about*
 
 Cash.nvim is written by Kyle Kovacs and is available under the MIT license.
 

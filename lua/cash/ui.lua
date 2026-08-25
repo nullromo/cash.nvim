@@ -102,18 +102,22 @@ local PLACEMENT = {
     ['bottom-right'] = { 1, 1 },
 }
 
--- the row and column for a popup of this size in this position. The border
--- adds a row and a column on each side, and the command line and status line
--- are not free to be covered, so neither counts as space to place into
+-- the row and column for a popup of this size in this position. A border adds
+-- a row and a column on each side, and the command line and status line are
+-- not free to be covered, so neither counts as space to place into
 ---@param position cash.Position
----@param width integer
+---@param width integer without its border
 ---@param height integer without its border
+---@param frame? integer how many rows and columns the border adds on each
+--- side, which is 1 when left out. The indicator is drawn without one and
+--- passes 0, since its brackets are its border
 ---@return { row: integer, col: integer }
-local placement = function(position, width, height)
+ui.placement = function(position, width, height, frame)
+    frame = frame or 1
     local fraction = PLACEMENT[position] or PLACEMENT['center']
 
-    local rowsFree = vim.o.lines - vim.o.cmdheight - 1 - (height + 2)
-    local columnsFree = vim.o.columns - (width + 2)
+    local rowsFree = vim.o.lines - vim.o.cmdheight - 1 - (height + frame * 2)
+    local columnsFree = vim.o.columns - (width + frame * 2)
 
     return {
         row = math.max(0, math.floor(rowsFree * fraction[1])),
@@ -168,16 +172,6 @@ local padRowTo = function(row, width)
     if shortfall > 0 then
         addChunk(row, string.rep(' ', shortfall))
     end
-end
-
----@param text string
----@param width integer in display cells
----@return string
-local truncate = function(text, width)
-    if vim.fn.strdisplaywidth(text) <= width then
-        return text
-    end
-    return vim.fn.strcharpart(text, 0, width - 1) .. '~'
 end
 
 -- how many matches a cash register has in the buffer the user came from.
@@ -538,7 +532,10 @@ local paneRows = function(cash, index)
         line('contents', { { 'empty', 'Comment' } })
     else
         line('contents', {
-            { truncate(register.pattern, PANE_VALUE), 'CashRegister' .. index },
+            {
+                util.truncate(register.pattern, PANE_VALUE),
+                'CashRegister' .. index,
+            },
         })
 
         -- the match pattern: what vim is actually given, with the case flag
@@ -547,7 +544,10 @@ local paneRows = function(cash, index)
         -- names it, since there is no friendlier word that is also accurate
         local matchPattern = util.resolveCase(register.pattern)
         if util.isUsablePattern(matchPattern) then
-            line('match pattern', { { truncate(matchPattern, PANE_VALUE) } })
+            line(
+                'match pattern',
+                { { util.truncate(matchPattern, PANE_VALUE) } }
+            )
         else
             line('match pattern', { { 'vim cannot compile', 'WarningMsg' } })
         end
@@ -578,7 +578,10 @@ local paneRows = function(cash, index)
             table.insert(windows, tostring(windowID))
         end
         line('matching window IDs', {
-            { truncate(table.concat(windows, '  '), PANE_VALUE), 'Comment' },
+            {
+                util.truncate(table.concat(windows, '  '), PANE_VALUE),
+                'Comment',
+            },
         })
     end
 
@@ -633,7 +636,7 @@ local placeWindows = function()
     local cash = drawer.cash
     local paneRoom = drawer.pane ~= nil and (PANE_WIDTH + 2) or 0
     local where =
-        placement(cash.opts.drawer.position, WIDTH + paneRoom, drawer.height)
+        ui.placement(cash.opts.drawer.position, WIDTH + paneRoom, drawer.height)
 
     vim.api.nvim_win_set_config(drawer.window, {
         relative = 'editor',
@@ -985,7 +988,7 @@ local chooserCell = function(row, cash, index, underCursor, patternWidth)
     if filled then
         addChunk(
             row,
-            truncate(register.pattern, patternWidth),
+            util.truncate(register.pattern, patternWidth),
             'CashRegister' .. index
         )
     else
@@ -1083,7 +1086,7 @@ ui.openChooser = function(cash, style)
         end
     end
 
-    local where = placement(cash.opts.chooser.position, width, #rows)
+    local where = ui.placement(cash.opts.chooser.position, width, #rows)
     local window = vim.api.nvim_open_win(buffer, false, {
         relative = 'editor',
         width = width,
@@ -1189,7 +1192,7 @@ ui.open = function(cash)
     -- the legend, the two rules, the search set line and the key hints
     local height = 1 + 9 + #LEGEND + 3 + #FOOTER
 
-    local where = placement(cash.opts.drawer.position, WIDTH, height)
+    local where = ui.placement(cash.opts.drawer.position, WIDTH, height)
 
     local window = vim.api.nvim_open_win(buffer, true, {
         relative = 'editor',

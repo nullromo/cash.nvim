@@ -28,6 +28,7 @@ local options = {}
 ---@field colors? cash.ColorOptions
 ---@field disableStarPoundJump? boolean
 ---@field drawer? cash.DrawerOptions
+---@field indicator? cash.IndicatorOptions
 ---@field manageJumps? boolean
 ---@field persistCashRegisters? boolean
 ---@field respectHLSearch? boolean
@@ -47,6 +48,18 @@ local options = {}
 ---@field position? cash.Position
 ---@field detailPane? boolean
 
+-- the brackets, written either way: the name of one of the pairs Cash.nvim
+-- has, or the two strings to use
+---@alias cash.BracketOption cash.BracketStyle | cash.Brackets
+
+---@class cash.IndicatorOptions
+---@field show? boolean
+---@field style? cash.IndicatorStyle
+---@field position? cash.Position
+---@field pattern? boolean
+---@field patternWidth? integer
+---@field brackets? cash.BracketOption
+
 -- the options once resolve has filled in every default. What cash.opts holds,
 -- and what everything inside the plugin reads
 ---@class cash.ResolvedOptions : cash.Options
@@ -56,6 +69,7 @@ local options = {}
 ---@field colors cash.ResolvedColorOptions
 ---@field disableStarPoundJump boolean
 ---@field drawer cash.ResolvedDrawerOptions
+---@field indicator cash.ResolvedIndicatorOptions
 ---@field manageJumps boolean
 ---@field persistCashRegisters boolean
 ---@field respectHLSearch boolean
@@ -76,6 +90,16 @@ local options = {}
 ---@field border cash.Border
 ---@field position cash.Position
 ---@field detailPane boolean
+
+---@class cash.ResolvedIndicatorOptions
+---@field show boolean
+---@field style cash.IndicatorStyle
+---@field position cash.Position
+---@field pattern boolean
+---@field patternWidth integer
+---@field brackets cash.Brackets always the pair, never the name of one. A name
+--- is the other way of writing the same thing, and resolve turns it into the
+--- pair so that nothing downstream has to know which way it was written
 
 ---@type cash.ResolvedOptions
 options.defaultOptions = {
@@ -132,6 +156,32 @@ options.defaultOptions = {
         -- whether the detail pane is already open when the drawer appears. ?
         -- toggles it either way
         detailPane = false,
+    },
+    -- the indicator: a small window of this plugin's own saying which cash
+    -- register is the working one
+    indicator = {
+        -- off, because this is a persistent overlay on the user's own text and
+        -- that is asked for rather than arrived at. What it draws is available
+        -- as require('cash').label() and require('cash').statusline() either
+        -- way, for anyone putting it in a statusline of their own
+        show = false,
+        -- 'current' is the working cash register on its own, 'strip' is all
+        -- nine of them with the working one wearing its color as a swatch
+        style = 'current',
+        -- where on screen it sits, out of the same nine places the popups use
+        position = 'bottom-right',
+        -- whether the working cash register's pattern is shown as well as its
+        -- number
+        pattern = false,
+        -- how much of that pattern, in screen cells, before it is cut short
+        patternWidth = 20,
+        -- what goes round it. These are the indicator's border, which is
+        -- why it is drawn without one. Either the name of one of the pairs in
+        -- constants.brackets, or { left = ..., right = ... } to use anything
+        -- else
+        brackets = vim.deepcopy(
+            constants.brackets[constants.defaultBracketStyle]
+        ),
     },
     -- let this plugin own n and N, so that they can move between the matches
     -- of every cash register in the search set. With one cash register in the
@@ -213,6 +263,78 @@ options.migrate = function(opts)
     return migrated
 end
 
+-- throws unless the given value is one of the named bracket pairs or a pair
+-- written out in full.
+--
+-- Both halves are required of a pair, rather than the missing one falling back
+-- to the default. Half a pair is a chip that opens with one thing and closes
+-- with another, which nobody asks for on purpose, and the deep merge behind
+-- resolve would hand it over without a word
+---@param value any straight from the user's options table
+---@param valueName string as the user wrote it
+options.validateBrackets = function(value, valueName)
+    if type(value) == 'string' then
+        util.checkOneOf(value, valueName, constants.bracketStyles)
+        return
+    end
+
+    if type(value) ~= 'table' then
+        error(
+            '"'
+                .. valueName
+                .. '" must be one of '
+                .. table.concat(constants.bracketStyles, ', ')
+                .. ', or a table of left and right, for Cash.nvim'
+        )
+    end
+
+    for key, side in pairs(value) do
+        if key ~= 'left' and key ~= 'right' then
+            error(
+                '"'
+                    .. valueName
+                    .. '.'
+                    .. tostring(key)
+                    .. '" '
+                    .. constants.invalidOptionMessage
+            )
+        end
+        util.checkType(side, valueName .. '.' .. key, 'string')
+    end
+
+    if value.left == nil or value.right == nil then
+        error(
+            '"'
+                .. valueName
+                .. '" must have both a left and a right for '
+                .. 'Cash.nvim'
+        )
+    end
+end
+
+-- turns whatever the brackets option holds into the pair to draw with. A name
+-- becomes the pair it names, and a pair is already one.
+--
+-- Exported because two callers need it. resolve calls it so that the resolved
+-- options hold a pair whichever way the user wrote it, and indicator.label
+-- calls it because its overrides can name a style that the configured options
+-- do not, and those are read as they come rather than validated
+---@param brackets cash.BracketOption
+---@return cash.Brackets
+options.resolveBrackets = function(brackets)
+    if type(brackets) ~= 'string' then
+        return brackets
+    end
+
+    -- a name that is not one of them cannot come from setup, which has already
+    -- refused it, so it came from an override. The default pair is a better
+    -- answer there than an error thrown from inside a redraw
+    return vim.deepcopy(
+        constants.brackets[brackets]
+            or constants.brackets[constants.defaultBracketStyle]
+    )
+end
+
 -- checks the user's options and fills in a default for everything they did
 -- not specify. Returns a new table; the caller's own table is left alone
 ---@param opts? cash.Options
@@ -234,11 +356,17 @@ options.resolve = function(opts)
     -- the defaults are deep copied first because tbl_deep_extend hands back
     -- the tables it did not have to merge, and those would be this module's
     -- own defaults, shared with whatever the caller does to the result later
-    return vim.tbl_deep_extend(
-        'force',
-        vim.deepcopy(options.defaultOptions),
-        opts
-    )
+    local resolved =
+        vim.tbl_deep_extend('force', vim.deepcopy(options.defaultOptions), opts)
+
+    -- the brackets are the one option that can be written two ways, so this is
+    -- where the two become one. A name replaced the default pair outright
+    -- during the merge, since a string and a table do not merge, and it is
+    -- turned into the pair it names here
+    resolved.indicator.brackets =
+        options.resolveBrackets(resolved.indicator.brackets)
+
+    return resolved
 end
 
 -- throws unless every key in the given table is an option this plugin has,
@@ -349,6 +477,40 @@ options.validateOptions = function(opts)
                             .. key2
                             .. '" '
                             .. constants.invalidOptionMessage
+                    )
+                end
+            end
+        elseif key1 == 'indicator' then
+            util.checkType(value1, name1 .. '.indicator', 'table')
+            for key2, value2 in pairs(value1) do
+                local name2 = name1 .. '.indicator.' .. key2
+                if key2 == 'show' then
+                    util.checkType(value2, name2, 'boolean')
+                elseif key2 == 'style' then
+                    util.checkOneOf(value2, name2, constants.indicatorStyles)
+                elseif key2 == 'position' then
+                    util.checkOneOf(value2, name2, constants.positions)
+                elseif key2 == 'pattern' then
+                    util.checkType(value2, name2, 'boolean')
+                elseif key2 == 'patternWidth' then
+                    util.checkType(value2, name2, 'number')
+                    -- a width of nothing is a truncate that cuts everything
+                    -- off and leaves the ~ behind, which is not what anyone
+                    -- means by it. Turning the pattern off is what pattern is
+                    -- for
+                    if value2 < 1 or value2 ~= math.floor(value2) then
+                        error(
+                            '"'
+                                .. name2
+                                .. '" must be a whole number of 1 or more '
+                                .. 'for Cash.nvim'
+                        )
+                    end
+                elseif key2 == 'brackets' then
+                    options.validateBrackets(value2, name2)
+                else
+                    error(
+                        '"' .. name2 .. '" ' .. constants.invalidOptionMessage
                     )
                 end
             end

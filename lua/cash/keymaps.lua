@@ -275,6 +275,34 @@ keymaps.setUpKeymaps = function(cash)
         )
     end
 
+    -- what on, off and toggle come to, for the verbs that switch something.
+    -- Returns nil for an argument that is none of the three, having said so
+    ---@param verb string the verb being read, so that the complaint names it
+    ---@param argument string|nil
+    ---@param current boolean what the option says now, which toggle reverses
+    ---@return boolean|nil
+    local switched = function(verb, argument, current)
+        if argument == 'on' then
+            return true
+        end
+
+        if argument == 'off' then
+            return false
+        end
+
+        if argument == 'toggle' or argument == nil then
+            return not current
+        end
+
+        vim.api.nvim_echo({
+            {
+                'Cash.nvim: :Cash ' .. verb .. ' takes on, off or toggle',
+                'ErrorMsg',
+            },
+        }, true, {})
+        return nil
+    end
+
     -- one command with verbs, rather than a command per action, so that this
     -- plugin takes one name in the command namespace instead of nine
     ---@type table<string, fun(argument?: string)>
@@ -316,21 +344,13 @@ keymaps.setUpKeymaps = function(cash)
         end,
         -- issue #16's real-time switch
         autohide = function(argument)
-            if argument == 'on' then
-                cash.opts.autoNoHighlight = true
-            elseif argument == 'off' then
-                cash.opts.autoNoHighlight = false
-            elseif argument == 'toggle' or argument == nil then
-                cash.opts.autoNoHighlight = not cash.opts.autoNoHighlight
-            else
-                vim.api.nvim_echo({
-                    {
-                        'Cash.nvim: :Cash autohide takes on, off or toggle',
-                        'ErrorMsg',
-                    },
-                }, true, {})
+            local wanted =
+                switched('autohide', argument, cash.opts.autoNoHighlight)
+            if wanted == nil then
                 return
             end
+
+            cash.opts.autoNoHighlight = wanted
 
             vim.notify(
                 'Cash.nvim: highlighting '
@@ -338,10 +358,44 @@ keymaps.setUpKeymaps = function(cash)
                     .. ' when the cursor moves'
             )
         end,
+        -- which cash register is the working one, said once rather than kept
+        -- on screen.
+        --
+        -- The style and the pattern are both asked for rather than read from
+        -- the options: someone who has typed the question wants the number and
+        -- the whole of what it holds, and the strip is a thing to leave on
+        -- screen rather than an answer to a question.
+        --
+        -- The chunks are handed to nvim_echo as they are, since a chunk is
+        -- already the pair of text and highlight group it takes
+        where = function()
+            local label = cash.label({ style = 'current', pattern = true })
+
+            -- not added to the message history: this is a readout of what is
+            -- true right now, and :messages full of them days later is noise
+            vim.api.nvim_echo(label.chunks, false, {})
+        end,
+        -- issue #2's real-time switch, and the way to try the indicator out
+        -- without writing any config
+        indicator = function(argument)
+            local wanted =
+                switched('indicator', argument, cash.opts.indicator.show)
+            if wanted == nil then
+                return
+            end
+
+            cash.opts.indicator.show = wanted
+            cash.updateIndicator()
+
+            vim.notify(
+                'Cash.nvim: the indicator is '
+                    .. (wanted and 'showing' or 'hidden')
+            )
+        end,
     }
 
-    -- autohide is the one verb whose argument is not a cash register
-    local autohideArguments = { 'on', 'off', 'toggle' }
+    -- the two verbs whose argument is a switch rather than a cash register
+    local switchArguments = { 'on', 'off', 'toggle' }
 
     local takesIndex = {
         use = true,
@@ -390,8 +444,8 @@ keymaps.setUpKeymaps = function(cash)
                     for index = 1, 9 do
                         table.insert(candidates, tostring(index))
                     end
-                elseif words[2] == 'autohide' then
-                    candidates = vim.deepcopy(autohideArguments)
+                elseif words[2] == 'autohide' or words[2] == 'indicator' then
+                    candidates = vim.deepcopy(switchArguments)
                 end
             else
                 for verb in pairs(verbs) do

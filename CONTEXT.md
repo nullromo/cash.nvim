@@ -352,6 +352,102 @@ that follows drops the window from the ledger rather than deleting anything
 through it. The borders are windows of their own and get the same treatment,
 since a pattern like `.` matches what is in them too.
 
+## The indicator
+
+The always-on answer to which cash register is the working one, in
+`lua/cash/indicator.lua`. Issue #2.
+
+> The label is the answer as data. Everything that gets drawn is built from it,
+> and so is anything a user builds for a statusline of their own.
+
+The chooser answers the same question when it is asked. This answers it
+continuously, which is a different job and a different amount of screen.
+
+Three things live here, in the order they carry weight: `indicator.label` is
+the answer as data, `indicator.statusline` is the same answer in statusline
+syntax, and `indicator.update` draws it in a window of this plugin's own.
+
+**The built-in placement is a float rather than the statusline**, and that is
+the design decision the rest follows from. `'statusline'` belongs to whatever
+set it, and lualine and heirline both write it on every redraw, so a plugin
+that assigned it would lose a race it never announced; at `laststatus=0` there
+is nothing to assign at all. `'winbar'` and `'tabline'` are the same story with
+nvim-navic and bufferline. A float is the only surface this plugin owns
+outright, and it works underneath all of them. What it costs is being a window
+that has to be kept in step, which is what `indicator.update` is for.
+
+**A statusline needs an expression, not a string.** Two facts about vim, both
+checked rather than assumed:
+
+- `%{%` `%}` re-parses its result as statusline items, so a `%#CashRegister3#`
+  inside it is a highlight. Inside a plain `%{` `%}` it is drawn as the text it
+  is.
+- A statusline built by concatenating a lua call holds what that call returned
+  when the config was read, and holds it for the rest of the session.
+
+So `statusline` returns statusline syntax rather than plain text, and the docs
+write the `%{%` form out rather than leaving it to be found. Every `%` in the
+label is doubled on the way out, because a cash register holds whatever was
+typed and `%d` is a search for a digit.
+
+`label` takes overrides so that a caller can have an answer other than the
+configured one. `:Cash where` asks for the pattern whether or not the indicator
+is showing it, since someone who has typed the question wants the whole answer.
+
+**The strip reads a swatch differently from the chooser.** There, a swatch
+means "holds a pattern" and `▸` marks the working one. Here the working one
+wears the swatch, a filled one wears its color as text, and an empty one is
+`Comment`: three states, one cell each, and no marker. A marker moving along
+the strip would shift the other eight numbers about every time the answer
+changed, and this is a thing read out of the corner of an eye.
+
+**The brackets can be named or written out.** `indicator.brackets` takes
+either the name of one of the pairs in `constants.brackets` or a
+`{ left, right }` of the user's own, and `options.resolveBrackets` is where the
+two become one, so that nothing downstream has to know which way it was
+written. Every named pair is one cell on each side and free of CJK coverage,
+which is the whole reason the list exists: the fullwidth `【】` this started
+with is two cells and missing from most programming fonts. The four made of
+box drawing and block characters are East Asian Ambiguous and take two cells a
+side under `ambiwidth=double`, which nothing has to handle, because the
+indicator measures what it is about to draw rather than counting on a width.
+
+Naming the pairs costs a piece of drift that is worth knowing about.
+lua-language-server checks a **list** annotated with an alias element by
+element, which is what keeps `constants.bracketStyles` and `cash.BracketStyle`
+in step, exactly as it does for the positions. It does **not** check a table's
+**keys** against an alias, so `constants.brackets` can gain a name the list
+does not have, or miss one it does. That second direction is the one that would
+reach a user, since autocomplete would offer a name setup refuses, so the suite
+resolves every name in the list rather than leaving it to the checker.
+
+Both halves of a written-out pair are required. A deep merge would otherwise
+hand back half of the user's pair and half of the default, which is a chip that
+opens with one thing and closes with another.
+
+**Every chunk names a highlight group, including the spaces between the
+numbers.** The float draws an unpainted chunk in `NormalFloat` and a statusline
+leaves it in whatever group came before it, so the two renderings would not be
+the same thing.
+
+`indicator.update` has `updateHighlights`' shape, and for the same reason: work
+out what should be on screen, compare it against what is, fix the difference.
+It runs from `SafeState`, which is vim about to wait for the next key, so
+everything that changes the working cash register redraws it without knowing
+that it has to. That is also why the first thing it reads is `indicator.show`:
+switched off, which is the default, the whole thing costs one table lookup per
+keystroke.
+
+Two things it does are the drawer's decisions over again:
+
+- **Its buffer is kept out of the highlighting.** It holds a search pattern as
+  literal text, so a match there would paint it in the color it is reporting.
+  There is one buffer for every tab page's window, since there is only ever one
+  thing to say.
+- **It gets out of the way of the drawer.** The drawer says everything the
+  indicator says and eight things besides, and `drawer.position` can put the
+  two of them in the same corner.
+
 ## The cash register under the cursor
 
 What <kbd>?</kbd><kbd>?</kbd> switches to, in `lua/cash/cursor.lua`.

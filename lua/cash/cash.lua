@@ -1,5 +1,6 @@
 local cursor = require('cash.cursor')
 local highlights = require('cash.highlights')
+local indicator = require('cash.indicator')
 local jump = require('cash.jump')
 local persist = require('cash.persist')
 local util = require('cash.util')
@@ -84,6 +85,31 @@ CashModule.updateHighlights = function()
         CashModule.state.cashRegisters,
         CashModule.state.currentIndex
     )
+end
+
+-- brings the indicator in line with the current state, in every tab page it
+-- is open in
+CashModule.updateIndicator = function()
+    indicator.update(CashModule)
+end
+
+-- what the indicator says, as data: the text, the pieces of it that carry one
+-- highlight group each, and the working cash register's own group. This is
+-- what to build a statusline component out of; see cash.statusline for a
+-- statusline that takes a string
+---@param overrides? cash.IndicatorOptions the indicator's options with
+--- something changed, for an answer other than the configured one
+---@return cash.Label
+CashModule.label = function(overrides)
+    return indicator.label(CashModule, overrides)
+end
+
+-- the same answer in statusline syntax, to be embedded as %{% %} rather than
+-- concatenated. See indicator.statusline
+---@param overrides? cash.IndicatorOptions
+---@return string
+CashModule.statusline = function(overrides)
+    return indicator.statusline(CashModule, overrides)
 end
 
 -- sets the given string as the search pattern for the current index. This
@@ -541,6 +567,18 @@ CashModule.setUpAutocmds = function()
                 CashModule.updateHighlights()
             end)
         end,
+    })
+
+    -- the indicator follows the state rather than being redrawn by each of
+    -- the things that can change it. SafeState is vim about to wait for the
+    -- next key, so a switch made by a mapping, a command, an edit in the
+    -- drawer or the restore at startup has already happened by the time this
+    -- runs, and an update that finds nothing out of place does not touch vim
+    -- at all. VimResized is named as well, because a resize moves where the
+    -- indicator belongs without changing a word of what it says
+    vim.api.nvim_create_autocmd({ 'SafeState', 'VimResized' }, {
+        group = group,
+        callback = CashModule.updateIndicator,
     })
 
     local lastHighlightState = vim.v.hlsearch

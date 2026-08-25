@@ -75,6 +75,24 @@ util.resolveCase = function(pattern)
     return (vim.o.ignorecase and '\\c' or '\\C') .. pattern
 end
 
+-- shortens text to fit a given number of display cells, marking that
+-- something was taken off with a ~ in the last one.
+--
+-- Display cells rather than bytes or characters, because a pattern holds
+-- whatever the user typed: a multibyte character is several bytes wide and one
+-- cell, and a wide one is one character and two cells. Everything this is used
+-- for is a column in something drawn on screen, so cells are the unit that
+-- matters
+---@param text string
+---@param width integer in display cells
+---@return string
+util.truncate = function(text, width)
+    if vim.fn.strdisplaywidth(text) <= width then
+        return text
+    end
+    return vim.fn.strcharpart(text, 0, width - 1) .. '~'
+end
+
 -- how many matches a match pattern has in one window.
 --
 -- Bounded on both sides: maxcount stops a pattern matching nearly every
