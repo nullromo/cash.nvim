@@ -182,12 +182,10 @@ end
 
 -- how many matches a cash register has in the buffer the user came from.
 --
--- Bounded on both sides: maxcount stops a pattern matching nearly every
--- character from being counted to the end, and timeout stops an expensive one
--- from being counted at all. Bounded is not cheap enough on its own, though,
--- because the counts are redrawn on every keystroke while a pattern is being
--- typed -- so an answer is only worked out for a pattern that has not been
--- asked about before
+-- util.matchCount is bounded on both sides already, but bounded is not cheap
+-- enough on its own here, because the counts are redrawn on every keystroke
+-- while a pattern is being typed. So an answer is only asked for once, and the
+-- window it is asked about is the one the user came from rather than the drawer
 ---@param matchPattern string
 ---@return string count as it is drawn, so 999+ rather than a number, and empty
 --- when there is no answer
@@ -198,20 +196,7 @@ local matchCount = function(matchPattern)
         return cached
     end
 
-    local counted = nil
-    pcall(vim.api.nvim_win_call, drawer.originWindow, function()
-        counted = vim.fn.searchcount({
-            pattern = matchPattern,
-            maxcount = 999,
-            timeout = 50,
-        })
-    end)
-
-    local answer = ''
-    if counted ~= nil and counted.total ~= nil then
-        answer = counted.incomplete == 2 and '999+' or tostring(counted.total)
-    end
-
+    local answer = util.matchCount(matchPattern, drawer.originWindow)
     drawer.counts[matchPattern] = answer
     return answer
 end

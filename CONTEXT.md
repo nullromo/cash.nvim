@@ -307,6 +307,51 @@ the nine names in `constants.positions` and turns it into a row and column. The
 command line and the status line are not free to be covered, so neither counts
 as space to place into.
 
+## The picker
+
+What `:Telescope cash_registers` opens, in `lua/cash/picker.lua` and
+`lua/telescope/_extensions/cash_registers.lua`.
+
+> The picker lists the nine cash registers, filters them by what they hold, and
+> switches to the one that is chosen. That is all it does.
+
+It answers a question the chooser cannot: which cash register holds the
+pattern I am after, when there are more of them than fit in my head. Everything
+else about a cash register still belongs to the drawer.
+
+Telescope is optional, and nothing in the extension is loaded until the
+extension is asked for. Telescope finds the file by looking under
+`lua/telescope/_extensions/` for an extension of that name, which means
+cash.nvim has to be on the runtimepath before the command works at all. A
+lazy-loaded cash.nvim gives `:Telescope cash_registers` reporting an unknown
+command, and so does any error raised while the extension is loading, because
+telescope wraps that require in a `pcall`.
+
+The split between the two files is the split between the two plugins.
+`picker.rows` says what each row holds, `picker.select` is what choosing one
+does, and `picker.excludeFromHighlighting` keeps telescope's windows out of the
+highlighting. The extension is telescope plumbing and nothing else. The tests
+stop at the same line, since the suite runs with no plugins installed.
+
+Three of the picker's decisions are the drawer's decisions, made for the
+drawer's reasons:
+
+- **The match counts and the search are asked of the window the picker was
+  opened from.** Asked of telescope's prompt, `searchcount` would count matches
+  in the list of patterns, and selecting would jump about inside that list.
+- **Every cash register gets a row**, empty ones included, because which colors
+  are free is part of what the list answers. This is the chooser's reasoning.
+- **Telescope's own windows are kept out of the highlighting.** They hold the
+  patterns as literal text.
+
+Keeping them out is not the same job as keeping the drawer out. The drawer marks
+its buffer before its window exists. Telescope's windows are open and already
+carrying matches by the time the extension can name them, so the mark goes on,
+the matches that arrived with the window are cleared by hand, and the update
+that follows drops the window from the ledger rather than deleting anything
+through it. The borders are windows of their own and get the same treatment,
+since a pattern like `.` matches what is in them too.
+
 ## The cash register under the cursor
 
 What <kbd>?</kbd><kbd>?</kbd> switches to, in `lua/cash/cursor.lua`.

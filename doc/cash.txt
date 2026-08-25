@@ -22,15 +22,16 @@ CONTENTS                                    *cash-contents* *cash.nvim* *cash*
   7. Include in search .............................. |cash-include-in-search|
   8. The chooser .............................................. |cash-chooser|
   9. The cash drawer ........................................... |cash-drawer|
-  10. Commands ............................................... |cash-commands|
-  11. Default mappings ....................................... |cash-mappings|
-  12. Configuration ..................................... |cash-configuration|
-  13. Lua API ..................................................... |cash-api|
-  14. Highlight groups ............................... |cash-highlight-groups|
-  15. Compatibility ..................................... |cash-compatibility|
-  16. Tips ....................................................... |cash-tips|
-  17. Troubleshooting ................................. |cash-troubleshooting|
-  18. About ..................................................... |cash-about|
+  10. Telescope.nvim picker .................................... |cash-picker|
+  11. Commands ............................................... |cash-commands|
+  12. Default mappings ....................................... |cash-mappings|
+  13. Configuration ..................................... |cash-configuration|
+  14. Lua API ..................................................... |cash-api|
+  15. Highlight groups ............................... |cash-highlight-groups|
+  16. Compatibility ..................................... |cash-compatibility|
+  17. Tips ....................................................... |cash-tips|
+  18. Troubleshooting ................................. |cash-troubleshooting|
+  19. About ..................................................... |cash-about|
 
 
 ==============================================================================
@@ -69,6 +70,8 @@ Call |cash.setup()| once, then:
     unless you ask for more. See |cash-include-in-search|.
   - `:Cash` opens the cash drawer (cha-ching), which shows all nine registers
     at once and lets you view/edit them. See |cash-drawer|.
+  - `:Telescope cash_registers` picks a cash register (requires
+    Telescope.nvim). See |cash-picker|.
   - |:nohlsearch| clears all nine at once. Searching again or opening the
     drawer brings them back.
 
@@ -83,6 +86,10 @@ Call |cash.setup()| once, then:
 
 There are no plugin dependencies. `:checkhealth cash` reports whether both
 requirements are met; see |cash-troubleshooting|.
+
+Telescope.nvim (https://github.com/nvim-telescope/telescope.nvim) is optional.
+With it installed there is one more way to choose a cash register; see
+|cash-picker|.
 
 
 ==============================================================================
@@ -423,7 +430,58 @@ an error.
 
 
 ==============================================================================
-10. COMMANDS                                                   *cash-commands*
+10. THE TELESCOPE PICKER                        *cash-picker* *cash-telescope*
+
+With Telescope.nvim installed, `:Telescope cash_registers` lists all nine cash
+registers and filters them as you type. Selecting one makes it the working
+cash register, exactly as `?{n}` and |:Cash-use| do. >
+
+        9 ○    1 TODO
+        8 ○      ·
+        7 ○      ·
+        6 ○      ·
+        5 ○      ·
+        4 ○      ·
+        3 ○      ·
+        2 ●    2 bar
+    > ▸ 1 ●    3 foo
+<
+The columns are the same as the columns in the cash drawer, with the match
+count moved in front of the contents. The `▸` marks the working cash register.
+The number colors match the cash register colors. The dot indicates the
+`includeInSearch` setting. `·` marks an empty cash register, which still gets
+a row, since knowing which colors are free is part of what the list is for.
+The `>` is Telescope's cursor.
+
+The rows run from cash register 1 to cash register 9, in whichever direction
+your Telescope `sorting_strategy` puts them.
+
+The prompt matches the number as well as the contents, so `2` finds cash
+register 2. The picker opens on the working cash register. `<CR>` selects the
+register under the cursor.
+
+Selecting a cash register searches for that register's pattern in the window
+the picker was opened from, so the cursor moves to the next match the way it
+does after any other search. Selecting an empty cash register clears |quote_/|
+and leaves the cursor where it is.
+
+Choosing is all the picker does. Editing a pattern, swapping two registers,
+switching include-in-search, etc. all belong to the cash drawer; see
+|cash-drawer|.
+
+Telescope finds the picker by name on the 'runtimepath', so Cash.nvim has to
+be loaded before `:Telescope cash_registers` will work. Telescope reports
+`Unknown command` if it cannot find the extension. This only comes up if your
+plugin manager loads Cash.nvim lazily. |cash.setup()| has to have run as well.
+
+There is no need to call `require('telescope').load_extension()`. Telescope
+will load extensions automatically the first time they are invoked. Nothing
+else in Cash.nvim needs Telescope, and none of Telescope is loaded unless the
+picker is invoked.
+
+
+==============================================================================
+11. COMMANDS                                                   *cash-commands*
 
 Cash.nvim takes one command with verbs, rather than a command per action. All
 of the verbs and their arguments complete with |c_CTRL-D| and |'wildmenu'|.
@@ -481,7 +539,7 @@ a message rather than acted on.
 
 
 ==============================================================================
-11. DEFAULT MAPPINGS                                           *cash-mappings*
+12. DEFAULT MAPPINGS                                           *cash-mappings*
 
                                                                       *cash-?*
 ?                       Normal mode. Open the chooser and wait for a digit,
@@ -539,7 +597,7 @@ applied.
 
 
 ==============================================================================
-12. CONFIGURATION                                         *cash-configuration*
+13. CONFIGURATION                                         *cash-configuration*
 
 Options are passed to |cash.setup()|. Anything left out keeps its default;
 anything misspelled or of the wrong type raises an error naming the option,
@@ -684,7 +742,7 @@ respectHLSearch                                         *cash-respectHLSearch*
 
 
 ==============================================================================
-13. LUA API                                                         *cash-api*
+14. LUA API                                                         *cash-api*
 
 Everything below is a field of the table returned by `require('cash')`.
 
@@ -796,7 +854,7 @@ cash.opts                                                          *cash.opts*
 
 
 ==============================================================================
-14. HIGHLIGHT GROUPS                                   *cash-highlight-groups*
+15. HIGHLIGHT GROUPS                                   *cash-highlight-groups*
 
                                                              *hl-CashRegister*
 CashRegister1 ... CashRegister9
@@ -830,7 +888,7 @@ Setting any of these groups yourself is possible but pointless: Cash.nvim sets
 
 
 ==============================================================================
-15. COMPATIBILITY                                         *cash-compatibility*
+16. COMPATIBILITY                                         *cash-compatibility*
 
 THE ? KEY IS TAKEN                                      *cash-compat-question*
 
@@ -872,7 +930,7 @@ offsets work normally.
 
 
 ==============================================================================
-16. TIPS                                                           *cash-tips*
+17. TIPS                                                           *cash-tips*
 
 These are not part of Cash.nvim, but they go well with it.
 
@@ -920,7 +978,7 @@ every search you make in the other eight.
 
 
 ==============================================================================
-17. TROUBLESHOOTING                                     *cash-troubleshooting*
+18. TROUBLESHOOTING                                     *cash-troubleshooting*
 
 >vim
     :checkhealth cash
@@ -952,7 +1010,7 @@ The healthcheck does not modify anything.
 
 
 ==============================================================================
-18. ABOUT                                                         *cash-about*
+19. ABOUT                                                         *cash-about*
 
 Cash.nvim is written by Kyle Kovacs and is available under the MIT license.
 

@@ -75,6 +75,44 @@ util.resolveCase = function(pattern)
     return (vim.o.ignorecase and '\\c' or '\\C') .. pattern
 end
 
+-- how many matches a match pattern has in one window.
+--
+-- Bounded on both sides: maxcount stops a pattern matching nearly every
+-- character from being counted to the end, and timeout stops an expensive one
+-- from being counted at all. A count that ran out of room says 999+ rather than
+-- a number, and a pattern vim will not compile has no count at all.
+--
+-- The window matters, because the answer is about a buffer. Every list of
+-- patterns this plugin draws -- the drawer, the telescope picker -- holds the
+-- patterns as literal text, so a count asked for from inside one would count
+-- matches in the list rather than in the buffer the list is about
+---@param matchPattern string what vim is actually asked to match
+---@param window? integer the window to count in. The current one when left out
+---@return string count as it is drawn, so 999+ rather than a number, and empty
+--- when there is no answer
+util.matchCount = function(matchPattern, window)
+    local counted = nil
+    local ask = function()
+        counted = vim.fn.searchcount({
+            pattern = matchPattern,
+            maxcount = 999,
+            timeout = 50,
+        })
+    end
+
+    if window == nil then
+        pcall(ask)
+    else
+        pcall(vim.api.nvim_win_call, window, ask)
+    end
+
+    if counted == nil or counted.total == nil then
+        return ''
+    end
+
+    return counted.incomplete == 2 and '999+' or tostring(counted.total)
+end
+
 -- shows a failure from :normal the way vim would have, without the lua
 -- traceback wrapped round it
 ---@param err any whatever pcall handed back

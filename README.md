@@ -184,6 +184,22 @@ drawer.
 _Note: The detail pane appears next to the drawer, so it needs a window at least
 102 columns wide in order to open._
 
+### Telescope.nvim Picker
+
+If you have [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim),
+`:Telescope cash_registers` lists all nine cash registers and filters them as
+you type. Selecting one makes it the working cash register, the same as
+<kbd>?</kbd>_n_ does.
+
+Selecting is all the picker does. Editing patterns, swapping registers and
+toggling include-in-search are done from the cash drawer.
+
+Telescope finds the picker on the runtimepath, so Cash.nvim has to be loaded
+before `:Telescope cash_registers` works. Telescope reports `Unknown command`
+while it cannot find the extension, which is worth knowing if your plugin
+manager loads Cash.nvim lazily. There is no need to call
+`require('telescope').load_extension()` yourself.
+
 ### Command
 
 Cash.nvim takes a single user command, with verbs.

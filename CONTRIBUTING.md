@@ -10,6 +10,12 @@ nvim --headless -u NONE -l tests/run.lua
 The tests run inside a real Neovim and assert on what vim actually did, so there
 is nothing to install. The command exits non-zero if anything fails.
 
+The suite runs with no plugins installed, so the Telescope extension in
+`lua/telescope/_extensions/` is not covered by it. Everything about the picker
+that does not need Telescope lives in `lua/cash/picker.lua`, which is tested.
+The extension itself is checked by running `:Telescope cash_registers` in a
+Neovim that has Telescope installed.
+
 Checks marked `known` are behaviour that is currently wrong and not yet fixed.
 They do not fail the run, but they do fail if they start passing, so that they
 get promoted to normal checks once the bug is dealt with.
