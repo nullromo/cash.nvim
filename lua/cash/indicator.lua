@@ -237,8 +237,14 @@ local buffer = nil
 ---@type table<integer, integer>
 local windows = {}
 
--- what the buffer already says, and where the windows already are. Both are
--- compared before anything is written, because update runs before vim waits
+-- What the label came to last time, as text and highlight groups together.
+--
+-- The groups have to be in here as well as the text. On the strip, a cash
+-- register going from empty to holding something changes the color of its
+-- number and not one character of what the label says, so a comparison of the
+-- text alone would leave the old color on screen.
+--
+-- Compared before anything is written, because update runs before vim waits
 -- for every keypress and almost every one of those finds nothing to do
 ---@type string|nil
 local drawn = nil
@@ -265,20 +271,28 @@ local indicatorBuffer = function()
     -- it is painted in
     vim.b[buffer].cashDrawer = true
 
-    -- a new buffer says nothing yet, whatever the last one said
-    drawn = nil
-
     return buffer
 end
 
--- puts the label in the buffer, when it is not there already
+-- the label as one string, text and groups together, for telling a label that
+-- has changed from one that has not
+---@param label cash.Label
+---@return string
+local signature = function(label)
+    local parts = {}
+
+    for _, chunk in ipairs(label.chunks) do
+        table.insert(parts, chunk[1])
+        table.insert(parts, chunk[2])
+    end
+
+    return table.concat(parts, '\1')
+end
+
+-- puts the label in the buffer
 ---@param label cash.Label
 local draw = function(label)
     local target = indicatorBuffer()
-
-    if drawn == label.text then
-        return
-    end
 
     vim.api.nvim_buf_set_lines(target, 0, -1, false, { label.text })
     vim.api.nvim_buf_clear_namespace(target, namespace, 0, -1)
@@ -291,8 +305,6 @@ local draw = function(label)
         })
         column = column + #chunk[1]
     end
-
-    drawn = label.text
 end
 
 -- opens the indicator in the current tab page
@@ -360,8 +372,30 @@ end
 -- for every keypress
 ---@param cash cash.Module
 indicator.update = function(cash)
-    -- read first, so that the default costs one table lookup per keystroke.
-    -- The cash drawer is the second way out: it says everything the indicator
+    -- Worked out before indicator.show is read, because the float is not the
+    -- only thing that can be showing this. A statusline, a winbar or a tabline
+    -- holding cash.statusline() has already been drawn by the time a search
+    -- reaches the cash register: the pattern is taken from @/ from a schedule,
+    -- so vim drew the line while the register still held the pattern before
+    -- it. Nothing announces the change, so the label is compared against what
+    -- it came to last time and the lines are redrawn when it has moved on.
+    --
+    -- Which makes this a redraw per change rather than per keystroke, and it
+    -- is why the comparison is worth making even with the indicator switched
+    -- off
+    local label = indicator.label(cash)
+    local current = signature(label)
+    local changed = current ~= drawn
+    drawn = current
+
+    if changed then
+        -- refused in a command-line window, and not worth reporting from
+        -- something that runs before every keypress
+        pcall(vim.cmd.redrawstatus)
+        pcall(vim.cmd.redrawtabline)
+    end
+
+    -- the cash drawer is the second way out: it says everything the indicator
     -- says and eight more things besides, and drawer.position can put the two
     -- of them in the same corner
     if not cash.opts.indicator.show or ui.isOpen() then
@@ -371,8 +405,12 @@ indicator.update = function(cash)
         return
     end
 
-    local label = indicator.label(cash)
-    draw(label)
+    -- drawn is about the label rather than about the buffer, so a buffer
+    -- something has wiped since is written again even when the label has not
+    -- moved. Otherwise it would sit there empty until the next switch
+    if changed or buffer == nil or not vim.api.nvim_buf_is_valid(buffer) then
+        draw(label)
+    end
 
     -- a label wider than the screen is drawn as much of itself as fits rather
     -- than as a window vim refuses to open

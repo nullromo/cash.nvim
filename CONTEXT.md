@@ -442,6 +442,23 @@ numbers.** The float draws an unpainted chunk in `NormalFloat` and a statusline
 leaves it in whatever group came before it, so the two renderings would not be
 the same thing.
 
+Two things about keeping it in step were found by looking at a real statusline
+rather than by reasoning about one:
+
+- **Vim draws the statusline before a search reaches its cash register.** The
+  pattern is taken from `@/` from a schedule, so a line holding
+  `cash.statusline()` is drawn while the register still holds the pattern
+  before it, and it sits one search behind until something else redraws it.
+  Nothing announces the change, so `update` compares the label against what it
+  last came to and issues `:redrawstatus` and `:redrawtabline` when it has
+  moved. That comparison is made before `indicator.show` is read, because the
+  float is not the only thing that can be showing the label.
+- **The comparison is over the groups as well as the text.** On the strip, a
+  cash register filling up changes the color of its number and not one
+  character of what the label says, so a comparison of the text alone leaves
+  the old color on screen. `signature` is text and groups together, which is
+  what makes the float and the lines both follow that change.
+
 `indicator.update` has `updateHighlights`' shape, and for the same reason: work
 out what should be on screen, compare it against what is, fix the difference.
 It runs from `SafeState`, which is vim about to wait for the next key, so

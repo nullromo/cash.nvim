@@ -518,7 +518,11 @@ screen, but not off the indicator.
 Cash.nvim redraws the indicator whenever Vim is about to wait for a key, so
 anything that changes the working cash register brings it up to date.
 |cash.updateIndicator()| exists in case you need to make a change in another
-context.
+context. Vim draws the statusline before a search reaches its cash register,
+since the pattern is taken from |quote_/| a moment later, so the line would
+otherwise be one search behind until something else redrew it. Cash.nvim calls
+|:redrawstatus| and |:redrawtabline| when needed to account for this. This
+happens whether or not the indicator window itself is switched on.
 
 
 ==============================================================================

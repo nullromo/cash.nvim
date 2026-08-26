@@ -510,6 +510,64 @@ return function(h)
     end
 
     do
+        -- on the strip, a cash register filling up changes the color of its
+        -- number and not one character of the text. A redraw that compares
+        -- only what the label says would leave the old color on screen
+        fresh({ show = true, style = 'strip' })
+        cash.updateIndicator()
+
+        -- the highlight groups actually on the extmarks, in column order
+        local function painted()
+            local marks = vim.api.nvim_buf_get_extmarks(
+                vim.api.nvim_win_get_buf(indicator.windows()[1]),
+                -1,
+                0,
+                -1,
+                { details = true }
+            )
+            table.sort(marks, function(one, other)
+                return one[3] < other[3]
+            end)
+
+            local groups = {}
+            for _, mark in ipairs(marks) do
+                table.insert(groups, mark[4].hl_group)
+            end
+            return groups
+        end
+
+        -- and the ones the label says should be there
+        local function wanted()
+            local groups = {}
+            for _, chunk in ipairs(cash.label().chunks) do
+                table.insert(groups, chunk[2])
+            end
+            return groups
+        end
+
+        local before = painted()
+        h.check(
+            'the float is painted the way the label says',
+            vim.deep_equal(before, wanted()),
+            vim.inspect({ painted = before, wanted = wanted() })
+        )
+
+        store(5, 'bar')
+        cash.updateIndicator()
+
+        h.check(
+            'and follows a change that alters a color and no text',
+            vim.deep_equal(painted(), wanted()),
+            vim.inspect({ painted = painted(), wanted = wanted() })
+        )
+        h.check(
+            'which is a change the text alone would not have shown',
+            not vim.deep_equal(before, painted()),
+            'nothing changed, so this proves nothing'
+        )
+    end
+
+    do
         fresh({ show = true })
         vim.cmd('tabnew')
         cash.updateIndicator()
