@@ -278,7 +278,7 @@ and both are in the search set, then |n| walks through every `foo` and every
 while it happens.
 
 Including or excluding a cash register changes where |n| goes, not what is
-highlighted.
+highlighted. Every match under the cursor gets highlighted by |hl-CurSearch|.
 
 This option can be toggled from the cash drawer using `<Space>`, from the
 command line using `:Cash include`, `:Cash exclude` and `:Cash toggle`, or
@@ -1100,9 +1100,19 @@ CashRegisterFg1 ... CashRegisterFg9
                         rather than by a match of its own, which is what keeps
                         |:nohlsearch| and |quote_/| behaving normally for it.
 
+|hl-CurSearch|          Left as your colorscheme has it, and used for the
+                        match the cursor is on. Vim already draws it that way
+                        for the working cash register; Cash.nvim adds it for
+                        the other cash registers in the |cash-search-set|,
+			which Vim doesn't know about. So the match you land
+			on with |n| looks the same no matter which cash
+			register it came from.
+
 The eight other matches are added with a priority below that of the search
 highlighting, so where two cash registers match the same text, the working one
-is the one you see.
+is the one you see. The current match is the exception. It goes above the
+search highlighting, because it indicates where the cursor is and nothing
+should cover that up.
 
 Setting any of these groups yourself is possible but pointless: Cash.nvim sets
 `Search` again on every update, and the `CashRegister` groups again on

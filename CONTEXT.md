@@ -49,9 +49,10 @@ The working cash register is in it whatever its own switch says. Searching for
 something and then not being able to jump to it is indefensible, so that switch
 only starts to matter once the register stops being the working one.
 
-The search set decides **where <kbd>n</kbd> goes and nothing else**. It has no
-effect on what is highlighted — an included cash register and an excluded one
-look exactly alike out in the buffer.
+The search set decides **where <kbd>n</kbd> goes**, and one thing about what is
+highlighted: the current match. An included cash register and an excluded one
+are drawn in the same colors as each other everywhere else in the buffer. The
+difference shows on the one match the cursor is sitting on, and nowhere else.
 
 The patterns in the search set are never joined into one pattern with `\|`.
 Two separate reasons, either one sufficient:
@@ -84,6 +85,57 @@ Match patterns are what the ledger stores, because two search patterns that are
 textually identical can need different highlights, and comparing the resolved
 form catches that.
 
+## Current match
+
+The match the cursor is sitting on, drawn in `CurSearch`, which is Vim's own
+highlight group for the same thing. In code:
+`highlights.updateCurrentMatch`.
+
+> Window _W_ has a current-match highlight exactly when `v:hlsearch` is on and
+> _W_'s cursor is on a match of a cash register that is in the search set and
+> is not the working one.
+
+The working cash register is left out because Vim already does it. Its pattern
+is in `@/`, so the match under the cursor wears `CurSearch` without anyone
+asking. That used to be the whole of it, which is what issue #21 was:
+<kbd>n</kbd> would take you to a match in an included cash register and leave it
+looking exactly like every other match in that register, so nothing on screen
+said where you had landed.
+
+`CurSearch` is per window in Vim. Every window paints the match under its own
+cursor, whether or not it is the current window, so this does the same and each
+window is asked about its own cursor.
+
+The highlight is a second `matchadd`, anchored to where the match starts:
+
+    \%23l\%5c\%(<match pattern>\)
+
+Vim works the extent out from there, which is what makes a multi-line or
+multi-byte match come out right without anything here measuring one. The
+`\%(\)` is not decoration: without it the anchors would bind to the first
+branch alone of a pattern like `foo\|bar`.
+
+This is the one highlight the plugin puts **above** Vim's own: priority 1,
+against `hlsearch`'s 0 and a cash register's -1. Where the cursor is beats
+anything else that has something to say about the same text.
+
+It is kept up to date from `SafeState` rather than from an event for each of
+the ways a cursor can move, because there are a lot of those and they all end in
+the same place. Answering the question means searching the buffer, so the last
+question asked about each window is remembered alongside the answer it got, and
+an unchanged question is answered from the memo instead. The question is the
+window's buffer, that buffer's changedtick, and where its cursor is. Nothing is
+asked at all when the search set is the working cash register on its own, which
+is every session that never touches `includeInSearch`.
+
+The search for a match start at or before the cursor stops at the top of the
+window. It is the only one of the three in `cursor.matchStart` that can scan a
+long way, and unbounded it costs milliseconds per keystroke in a large buffer:
+200,000 lines with the nearest match halfway away measured 8.4ms a keypress
+against 0.04ms bounded. What the bound gives up is a match that begins above the
+window and reaches down over the cursor, which takes a pattern matching across
+lines to arrive at.
+
 ## Ledger
 
 The record of which matches this plugin has added to which windows:
@@ -97,6 +149,10 @@ failed".
 The ledger records what the plugin *did*. It is never the source of truth for
 which windows exist — that question is always put to Vim.
 
+The current match is recorded separately, one entry per window rather than one
+per cash register, because it answers a different question and changes on a
+different beat. Absence is spelled the same way: no entry means no match.
+
 ## updateHighlights
 
 The one operation that makes this true, in every window:
@@ -104,6 +160,9 @@ The one operation that makes this true, in every window:
 > Window _W_ has a highlight for cash register _i_ exactly when `v:hlsearch` is
 > on, _i_ is not the working cash register, and cash register _i_'s pattern is
 > not empty.
+
+It makes the current match rule true at the same time, since both are about
+what a window has on it and both follow `v:hlsearch`.
 
 The `v:hlsearch` clause is what makes `:nohlsearch` mean all nine. Vim only
 ever applied it to the working cash register, since the other eight are matches
@@ -128,8 +187,10 @@ fixes the difference. It is idempotent: calling it twice does nothing the
 second time, so callers never have to know whether something has already been
 updated. Anything that can invalidate the highlights just calls it.
 
-In code: `highlights.update(cashRegisters, currentIndex)`, wrapped as
-`CashModule.updateHighlights()`.
+In code: `highlights.update(cashRegisters, currentIndex, searchable)`, wrapped
+as `CashModule.updateHighlights()`. The searchable patterns are worked out by
+`jump.searchablePatterns` and passed in, so that the highlights module does not
+have to know what a search set is.
 
 ## Persistence
 

@@ -27,8 +27,9 @@ local isAtOrBefore = function(a, b)
     return a[2] <= b[2]
 end
 
--- true when one of the given pattern's matches covers the cursor in the
--- current window.
+-- where the match covering the cursor starts, or nil when none of this
+-- pattern's matches covers it. In the current window, which for a window that
+-- is not the current one means calling this from inside nvim_win_call.
 --
 -- Three searches rather than one, and each of the three is there for a reason:
 --
@@ -48,14 +49,21 @@ end
 --     neither does this.
 --
 -- The cursor is put back before anything else can see it, so no CursorMoved
--- comes of this and autoNoHighlight has nothing to react to
+-- comes of this and autoNoHighlight has nothing to react to.
+--
+-- Only the first of the three searches can run away with itself: the other two
+-- start on a match and find its ends straight away, while that one scans back
+-- through everything between the cursor and the nearest match before it. In a
+-- large buffer that is worth bounding, which is what stopLine is for
 ---@param matchPattern string what vim is actually asked to match
 ---@param position cash.BufferPosition where the cursor is
----@return boolean
-local coversCursor = function(matchPattern, position)
-    local start = vim.fn.searchpos(matchPattern, 'bcnW')
+---@param stopLine? integer how far back to look, as a line number. All the way
+--- to the top of the buffer when left out
+---@return cash.BufferPosition|nil start nil when no match covers the cursor
+cursor.matchStart = function(matchPattern, position, stopLine)
+    local start = vim.fn.searchpos(matchPattern, 'bcnW', stopLine or 0)
     if start[1] == 0 then
-        return false
+        return nil
     end
 
     local view = vim.fn.winsaveview()
@@ -72,12 +80,16 @@ local coversCursor = function(matchPattern, position)
     vim.fn.winrestview(view)
 
     if finish[1] == 0 or not vim.deep_equal(roundTrip, start) then
-        return false
+        return nil
     end
 
     -- the backward search has already settled that the match starts at or
     -- before the cursor, so where it ends is all that is left to ask
-    return isAtOrBefore(position, finish)
+    if not isAtOrBefore(position, finish) then
+        return nil
+    end
+
+    return start
 end
 
 -- The cash register to switch to when the user asks for the one under the
@@ -106,7 +118,7 @@ cursor.cashRegister = function(cashRegisters, currentIndex)
             local matchPattern = util.resolveCase(pattern)
             if
                 util.isUsablePattern(matchPattern)
-                and coversCursor(matchPattern, position)
+                and cursor.matchStart(matchPattern, position) ~= nil
             then
                 return index
             end

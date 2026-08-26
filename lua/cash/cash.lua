@@ -83,6 +83,26 @@ end
 CashModule.updateHighlights = function()
     highlights.update(
         CashModule.state.cashRegisters,
+        CashModule.state.currentIndex,
+        jump.searchablePatterns(
+            CashModule.state.cashRegisters,
+            CashModule.state.currentIndex
+        )
+    )
+end
+
+-- brings the current-match highlight in line with where the cursor is, without
+-- the rest of the sweep.
+--
+-- The cash registers' own matches only change when the cash registers do; the
+-- current match changes whenever the cursor does, which is often enough to be
+-- worth its own way in
+CashModule.updateCurrentMatch = function()
+    highlights.updateCurrentMatch(
+        jump.searchablePatterns(
+            CashModule.state.cashRegisters,
+            CashModule.state.currentIndex
+        ),
         CashModule.state.currentIndex
     )
 end
@@ -598,11 +618,16 @@ CashModule.setUpAutocmds = function()
             -- CursorMoved it would have caused
             searchIsMovingTheCursor = false
 
-            if vim.v.hlsearch == lastHighlightState then
+            if vim.v.hlsearch ~= lastHighlightState then
+                lastHighlightState = vim.v.hlsearch
+                CashModule.updateHighlights()
                 return
             end
-            lastHighlightState = vim.v.hlsearch
-            CashModule.updateHighlights()
+
+            -- the same event is where the current match is kept up to date.
+            -- Everything that can move the cursor has finished by now, and
+            -- there is no need to know which of them it was
+            CashModule.updateCurrentMatch()
         end,
     })
 

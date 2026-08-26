@@ -122,7 +122,8 @@ For example, say cash register 1 holds `foo` and cash register 2 holds `bar`. If
 both registers 1 and 2 have `includeInSearch` = `true`, then <kbd>n</kbd> walks
 through every `foo` and every `bar` in whatever order they appear. They keep
 their own colors while it happens. Including a cash register changes where
-<kbd>n</kbd>/<kbd>N</kbd> go, not what is highlighted.
+<kbd>n</kbd>/<kbd>N</kbd> go, not what is highlighted. The match under the
+cursor is always colored with the `CurSearch` highlight group.
 
 The working cash register is always included, no matter what its own
 `includeInSearch` setting says.
