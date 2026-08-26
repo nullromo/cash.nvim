@@ -66,10 +66,10 @@ end
 -- what the indicator says, as data.
 --
 -- overrides is the indicator's options with something changed, for a caller
--- that wants an answer other than the configured one: :Cash where asks for the
--- pattern whether or not the indicator is showing it, and a statusline can ask
--- for the narrow style while the float stays on the strip. It is read as it
--- comes, since it never reaches vim as anything but text
+-- that wants an answer other than the configured one: :Cash where asks for
+-- both parts whatever indicator.display says, and a statusline can ask for the
+-- narrow style while the float stays on the strip. It is read as it comes,
+-- since it never reaches vim as anything but text
 ---@param cash cash.Module
 ---@param overrides? cash.IndicatorOptions
 ---@return cash.Label
@@ -94,26 +94,71 @@ indicator.label = function(cash, overrides)
     ---@type cash.Chunk[]
     local chunks = { { brackets.left, tint } }
 
+    -- display says which of the two parts are in here; style shapes the
+    -- number, so it has nothing to say about a label with no number in it
+    local hasNumber = opts.display ~= 'pattern'
+    local hasPattern = opts.display ~= 'number'
+
     -- every chunk names a group, including the spaces between the numbers.
     -- The float would draw an unpainted chunk in NormalFloat and a statusline
     -- would leave it in whatever group came before it, and the two renderings
     -- have to be the same thing
-    if opts.style == 'strip' then
-        for cell = 1, 9 do
-            if cell > 1 then
-                table.insert(chunks, { ' ', tint })
+    if hasNumber then
+        if opts.style == 'strip' then
+            for cell = 1, 9 do
+                if cell > 1 then
+                    table.insert(chunks, { ' ', tint })
+                end
+                table.insert(chunks, { tostring(cell), stripGroup(cash, cell) })
             end
-            table.insert(chunks, { tostring(cell), stripGroup(cash, cell) })
+        else
+            table.insert(chunks, { tostring(index), 'CashRegister' .. index })
         end
-    else
-        table.insert(chunks, { tostring(index), 'CashRegister' .. index })
     end
 
-    if opts.pattern and register.pattern ~= '' then
-        table.insert(chunks, {
-            ' ' .. util.truncate(register.pattern, opts.patternWidth),
-            tint,
-        })
+    local drewPattern = false
+
+    if hasPattern and register.pattern ~= '' then
+        -- maxWidth is the whole label, so what the pattern may have is
+        -- whatever the brackets and the number have not already spent.
+        --
+        -- Measured rather than counted, because a bracket is whatever the user
+        -- asked for: the box drawing and block pairs are East Asian Ambiguous
+        -- and take two cells each under ambiwidth=double, and a pair written
+        -- out by hand can be anything at all.
+        --
+        -- The number is never cut to make room. It is the answer the indicator
+        -- exists to give, and a label narrow enough to need cutting it is one
+        -- that should be showing nothing else instead. So a maxWidth smaller
+        -- than the number and its brackets is a label that comes out wider
+        -- than asked for, and the docs say so
+        local spent = vim.fn.strdisplaywidth(brackets.right)
+        for _, chunk in ipairs(chunks) do
+            spent = spent + vim.fn.strdisplaywidth(chunk[1])
+        end
+
+        local separator = hasNumber and ' ' or ''
+        local room = opts.maxWidth - spent - #separator
+
+        -- room for the ~ and nothing else is not worth taking. It would say
+        -- that there is a pattern and not one thing about what it is
+        if room >= 2 then
+            table.insert(chunks, {
+                separator .. util.truncate(register.pattern, room),
+                tint,
+            })
+            drewPattern = true
+        end
+    end
+
+    -- a label with no number in it still has to have something in it. An empty
+    -- cash register, or a maxWidth with no room in it for the pattern, would
+    -- otherwise leave a pair of brackets round nothing, which reads as the
+    -- indicator being broken rather than as the drawer being empty. The dot is
+    -- the mark the chooser and the picker already use for a cash register
+    -- holding nothing
+    if not hasNumber and not drewPattern then
+        table.insert(chunks, { '·', 'Comment' })
     end
 
     table.insert(chunks, { brackets.right, tint })

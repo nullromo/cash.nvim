@@ -61,6 +61,14 @@ constants.chooserStyles = { 'grid', 'strip', 'none' }
 ---@type cash.IndicatorStyle[]
 constants.indicatorStyles = { 'current', 'strip' }
 
+---@alias cash.IndicatorDisplay 'number' | 'pattern' | 'number-and-pattern'
+
+-- what the indicator puts inside its brackets. The number is the cash
+-- register's, drawn the way indicator.style asks for; the pattern is what that
+-- cash register holds
+---@type cash.IndicatorDisplay[]
+constants.indicatorDisplays = { 'number', 'pattern', 'number-and-pattern' }
+
 -- one pair of brackets for the indicator to wear
 ---@class cash.Brackets
 ---@field left string

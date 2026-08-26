@@ -367,6 +367,18 @@ Three things live here, in the order they carry weight: `indicator.label` is
 the answer as data, `indicator.statusline` is the same answer in statusline
 syntax, and `indicator.update` draws it in a window of this plugin's own.
 
+`display` says which of the two parts are in the label and `style` shapes the
+number, so `style` has nothing to say about `display = 'pattern'`. `maxWidth`
+is the whole label rather than the pattern alone, which means what the pattern
+may have is whatever the brackets and the number have not spent -- measured,
+since a bracket is whatever the user asked for. The number never gives way to
+make room: it is the answer the indicator exists to give, so a `maxWidth` too
+small to hold it is one the label comes out wider than. That case is
+the one with a hole in it: an empty cash register would leave a pair of
+brackets around nothing, which reads as the indicator being broken rather than
+as the drawer being empty, so it draws the `·` the chooser and the picker
+already use for a cash register holding nothing.
+
 **The built-in placement is a float rather than the statusline**, and that is
 the design decision the rest follows from. `'statusline'` belongs to whatever
 set it, and lualine and heirline both write it on every redraw, so a plugin

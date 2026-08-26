@@ -361,7 +361,7 @@ keymaps.setUpKeymaps = function(cash)
         -- which cash register is the working one, said once rather than kept
         -- on screen.
         --
-        -- The style and the pattern are both asked for rather than read from
+        -- The style and the display are both asked for rather than read from
         -- the options: someone who has typed the question wants the number and
         -- the whole of what it holds, and the strip is a thing to leave on
         -- screen rather than an answer to a question.
@@ -369,7 +369,10 @@ keymaps.setUpKeymaps = function(cash)
         -- The chunks are handed to nvim_echo as they are, since a chunk is
         -- already the pair of text and highlight group it takes
         where = function()
-            local label = cash.label({ style = 'current', pattern = true })
+            local label = cash.label({
+                style = 'current',
+                display = 'number-and-pattern',
+            })
 
             -- not added to the message history: this is a readout of what is
             -- true right now, and :messages full of them days later is noise

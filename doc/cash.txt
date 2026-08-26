@@ -451,12 +451,16 @@ The `indicator.style` option determines what the indicator contains.
 them.
 
 On the strip, the working cash register is highlighted in its color. Other
-registers that hold a patterns are shown in their colors, and an empty one is
-drawn in |hl-Comment|. 
+registers that hold a pattern are shown in their colors, and an empty one is
+drawn in |hl-Comment|.
 
-The `indicator.pattern` option adds the working cash register's pattern, cut short at
-`indicator.patternWidth` columns. `indicator.position` puts the indicator in one
-of the same nine places the popups use. See |cash-configuration|.
+The `indicator.display` option determines what goes inside the brackets: the
+cash register's number, the pattern it holds, or both. `indicator.style`
+shapes the number, so it does nothing when the pattern is shown on its own.
+The whole indicator is kept to `indicator.maxWidth` columns, with the pattern
+being truncated way to fit, if necessary. `indicator.position` puts the
+indicator in one of the same nine places the popups use. See
+|cash-configuration|.
 
 ------------------------------------------------------------------------------
 IN A STATUS LINE                                   *cash-indicator-statusline*
@@ -735,8 +739,8 @@ Defaults: >lua
             show = false,
             style = 'current',
             position = 'bottom-right',
-            pattern = false,
-            patternWidth = 20,
+            display = 'number',
+            maxWidth = 30,
             brackets = 'heavy-angle',
         },
         manageJumps = true,
@@ -835,18 +839,27 @@ indicator.position                                   *cash-indicator.position*
     Where the indicator is displayed on the screen. See
     |cash-chooser.position|.
 
-indicator.pattern                                     *cash-indicator.pattern*
-                        boolean, default `false`
+indicator.display                                     *cash-indicator.display*
+                        `'number'`, `'pattern'` or `'number-and-pattern'`,
+                        default `'number'`
 
-    Whether the indicator shows the working cash register's pattern as well as
-    its number.
+    What goes inside the brackets: >lua
 
-indicator.patternWidth                           *cash-indicator.patternWidth*
-                        number, default `20`
+        'number'                ❰3❱
+        'pattern'               ❰foo❱
+        'number-and-pattern'    ❰3 foo❱
+<
+    With `'pattern'`, an empty cash register is drawn as `·` with brackets.
 
-    How much of the working cash register's pattern is shown before being
-    truncated with a `~`. Must be a whole number greater than 0.
-    `indicator.pattern` hides the pattern.
+indicator.maxWidth                                   *cash-indicator.maxWidth*
+                        number, default `30`
+
+    How wide the whole indicator is, including brackets. Must be a whole
+    number greater than 0.
+
+    The pattern will be truncated with a `~` if necessary. The number is never
+    cut. With `style = 'strip'`, the indicator is 19 columns excluding the
+    pattern, which is why the default value is 30.
 
 indicator.brackets                                   *cash-indicator.brackets*
                         string or table, default `'heavy-angle'`
@@ -1012,9 +1025,9 @@ cash.label([{overrides}])                                       *cash.label()*
     `virt_text` both take.
 
     {overrides} is the `indicator` options with something changed. For
-    example, `label({ pattern = true })` gives the pattern whether or not the
-    indicator is configured to show it. It does not modify the indicator
-    itself.
+    example, `label({ display = 'number-and-pattern' })` gives the pattern
+    whether or not the indicator is configured to show it. It does not modify
+    the indicator itself.
 
     This should be used to build a status line component. See
     |cash-indicator-statusline|.

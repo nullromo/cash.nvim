@@ -87,11 +87,11 @@ return function(h)
     end
 
     do
-        fresh({ pattern = true })
+        fresh({ display = 'number-and-pattern' })
         cash.setSearch('foo')
 
         h.check(
-            'showing the pattern when asked to',
+            'showing the pattern as well when asked for both',
             cash.label().text == '❰1 foo❱',
             cash.label().text
         )
@@ -105,12 +105,90 @@ return function(h)
     end
 
     do
-        fresh({ pattern = true, patternWidth = 5 })
-        cash.setSearch('abcdefghij')
+        fresh({ display = 'pattern' })
+        cash.setSearch('foo')
 
         h.check(
-            'a pattern too long for patternWidth is cut short',
-            cash.label().text == '❰1 abcd~❱',
+            'the pattern on its own leaves the number out',
+            cash.label().text == '❰foo❱',
+            cash.label().text
+        )
+
+        -- the style shapes the number, and there is no number in here
+        h.check(
+            'and the strip has nothing to shape',
+            cash.label({ style = 'strip' }).text == '❰foo❱',
+            cash.label({ style = 'strip' }).text
+        )
+
+        cash.clearCashRegister(1)
+        h.check(
+            'an empty cash register is the dot, not an empty pair of brackets',
+            cash.label().text == '❰·❱',
+            cash.label().text
+        )
+    end
+
+    do
+        fresh({ display = 'number-and-pattern', maxWidth = 10 })
+        cash.setSearch('abcdefghij')
+
+        -- maxWidth is the whole label, brackets included, so this is the two
+        -- brackets, the number, the space, and six cells of pattern
+        h.check(
+            'a label too wide for maxWidth is cut short to fit',
+            cash.label().text == '❰1 abcde~❱',
+            cash.label().text
+        )
+        h.check(
+            'which is maxWidth exactly',
+            vim.fn.strdisplaywidth(cash.label().text) == 10,
+            vim.fn.strdisplaywidth(cash.label().text) .. ' cells'
+        )
+
+        -- the brackets are whatever was asked for, and two of the named pairs
+        -- are two cells wide under ambiwidth=double. What they cost has to be
+        -- measured rather than counted
+        fresh({
+            display = 'number-and-pattern',
+            maxWidth = 10,
+            brackets = { left = '【', right = '】' },
+        })
+        cash.setSearch('abcdefghij')
+        h.check(
+            'and the brackets are measured, not counted',
+            vim.fn.strdisplaywidth(cash.label().text) == 10,
+            cash.label().text
+                .. ' is '
+                .. vim.fn.strdisplaywidth(cash.label().text)
+                .. ' cells'
+        )
+
+        -- room for the ~ and nothing else says that there is a pattern and
+        -- not one thing about what it is
+        fresh({ display = 'number-and-pattern', maxWidth = 5 })
+        cash.setSearch('abcdefghij')
+        h.check(
+            'a maxWidth with no room for any of the pattern leaves it out',
+            cash.label().text == '❰1❱',
+            cash.label().text
+        )
+
+        -- the number is the answer the indicator exists to give, so a label
+        -- too narrow comes out too wide rather than unable to answer
+        fresh({ display = 'number-and-pattern', style = 'strip', maxWidth = 10 })
+        cash.setSearch('abcdefghij')
+        h.check(
+            'and the number is never the part that gives way',
+            cash.label().text == '❰1 2 3 4 5 6 7 8 9❱',
+            cash.label().text
+        )
+
+        fresh({ display = 'pattern', maxWidth = 3 })
+        cash.setSearch('abcdefghij')
+        h.check(
+            'a pattern with no room for it is the dot, not empty brackets',
+            cash.label().text == '❰·❱',
             cash.label().text
         )
     end
@@ -119,9 +197,9 @@ return function(h)
         fresh()
         h.check(
             'overrides answer a question other than the configured one',
-            cash.label({ pattern = true, style = 'strip' }).text
+            cash.label({ display = 'number-and-pattern', style = 'strip' }).text
                     ~= cash.label().text
-                and cash.opts.indicator.pattern == false,
+                and cash.opts.indicator.display == 'number',
             'the overrides leaked into the options'
         )
     end
@@ -281,7 +359,7 @@ return function(h)
     h.group('the statusline')
 
     do
-        fresh({ pattern = true })
+        fresh({ display = 'number-and-pattern' })
         cash.setCashRegister(3)
         cash.setSearch('50%')
 
@@ -476,7 +554,7 @@ return function(h)
     end
 
     do
-        fresh({ pattern = false })
+        fresh({ display = 'number' })
         cash.setSearch('foo')
 
         -- :Cash where asks for the whole answer whatever the indicator is

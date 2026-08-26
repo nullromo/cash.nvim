@@ -56,8 +56,8 @@ local options = {}
 ---@field show? boolean
 ---@field style? cash.IndicatorStyle
 ---@field position? cash.Position
----@field pattern? boolean
----@field patternWidth? integer
+---@field display? cash.IndicatorDisplay
+---@field maxWidth? integer
 ---@field brackets? cash.BracketOption
 
 -- the options once resolve has filled in every default. What cash.opts holds,
@@ -95,8 +95,8 @@ local options = {}
 ---@field show boolean
 ---@field style cash.IndicatorStyle
 ---@field position cash.Position
----@field pattern boolean
----@field patternWidth integer
+---@field display cash.IndicatorDisplay
+---@field maxWidth integer
 ---@field brackets cash.Brackets always the pair, never the name of one. A name
 --- is the other way of writing the same thing, and resolve turns it into the
 --- pair so that nothing downstream has to know which way it was written
@@ -170,11 +170,17 @@ options.defaultOptions = {
         style = 'current',
         -- where on screen it sits, out of the same nine places the popups use
         position = 'bottom-right',
-        -- whether the working cash register's pattern is shown as well as its
-        -- number
-        pattern = false,
-        -- how much of that pattern, in screen cells, before it is cut short
-        patternWidth = 20,
+        -- what goes inside the brackets: 'number' for the cash register's
+        -- number, 'pattern' for what it holds, or 'number-and-pattern' for
+        -- both. indicator.style shapes the number, so it has nothing to do
+        -- with 'pattern'
+        display = 'number',
+        -- how wide the whole label may be, in screen cells and brackets
+        -- included. The pattern is what gives way to fit; the number never
+        -- does. Wide enough by default for the strip and a pattern together,
+        -- since a cap that quietly leaves the pattern out of the combination
+        -- the user just asked for is a cap that looks like a bug
+        maxWidth = 30,
         -- what goes round it. These are the indicator's border, which is
         -- why it is drawn without one. Either the name of one of the pairs in
         -- constants.brackets, or { left = ..., right = ... } to use anything
@@ -490,14 +496,13 @@ options.validateOptions = function(opts)
                     util.checkOneOf(value2, name2, constants.indicatorStyles)
                 elseif key2 == 'position' then
                     util.checkOneOf(value2, name2, constants.positions)
-                elseif key2 == 'pattern' then
-                    util.checkType(value2, name2, 'boolean')
-                elseif key2 == 'patternWidth' then
+                elseif key2 == 'display' then
+                    util.checkOneOf(value2, name2, constants.indicatorDisplays)
+                elseif key2 == 'maxWidth' then
                     util.checkType(value2, name2, 'number')
-                    -- a width of nothing is a truncate that cuts everything
-                    -- off and leaves the ~ behind, which is not what anyone
-                    -- means by it. Turning the pattern off is what pattern is
-                    -- for
+                    -- a label cannot be no cells wide. Leaving the pattern
+                    -- out altogether is what display is for, rather than a
+                    -- width with no room in it
                     if value2 < 1 or value2 ~= math.floor(value2) then
                         error(
                             '"'
