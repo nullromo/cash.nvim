@@ -468,6 +468,32 @@ return function(h)
     end
 
     do
+        -- row 0 of the editor is the tabline's row when there is a tabline, so
+        -- a corner the tabline is in has to start one row lower
+        fresh({ show = true, position = 'top-left' })
+
+        vim.o.showtabline = 0
+        cash.updateIndicator()
+        local function row()
+            return vim.api.nvim_win_get_config(indicator.windows()[1]).row
+        end
+        h.check(
+            'sits in the top corner with no tabline to worry about',
+            row() == 0,
+            tostring(row())
+        )
+
+        vim.o.showtabline = 2
+        cash.updateIndicator()
+        h.check(
+            'and one row lower when a tabline is there',
+            row() == 1,
+            tostring(row())
+        )
+        vim.o.showtabline = 1
+    end
+
+    do
         fresh({ show = true })
         local function said()
             return vim.api.nvim_buf_get_lines(

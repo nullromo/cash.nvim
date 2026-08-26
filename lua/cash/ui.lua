@@ -102,9 +102,23 @@ local PLACEMENT = {
     ['bottom-right'] = { 1, 1 },
 }
 
+-- how many rows at the top of the screen the tabline is using: one when there
+-- is a tabline, none when there is not.
+--
+-- A float placed against the editor counts row 0 from the very top of the
+-- screen, and that row belongs to the tabline whenever there is one, so a
+-- popup put along the top would sit over it
+---@return integer
+local tablineRows = function()
+    local showing = vim.o.showtabline == 2
+        or (vim.o.showtabline == 1 and #vim.api.nvim_list_tabpages() > 1)
+    return showing and 1 or 0
+end
+
 -- the row and column for a popup of this size in this position. A border adds
--- a row and a column on each side, and the command line and status line are
--- not free to be covered, so neither counts as space to place into
+-- a row and a column on each side, and the tabline, the status line and the
+-- command line are not free to be covered, so none of them counts as space to
+-- place into
 ---@param position cash.Position
 ---@param width integer without its border
 ---@param height integer without its border
@@ -116,11 +130,20 @@ ui.placement = function(position, width, height, frame)
     frame = frame or 1
     local fraction = PLACEMENT[position] or PLACEMENT['center']
 
-    local rowsFree = vim.o.lines - vim.o.cmdheight - 1 - (height + frame * 2)
+    -- the tabline is taken off the space to place into and added back to the
+    -- row, so that the top positions start below it and the bottom ones stay
+    -- where they were
+    local tabline = tablineRows()
+
+    local rowsFree = vim.o.lines
+        - vim.o.cmdheight
+        - 1
+        - tabline
+        - (height + frame * 2)
     local columnsFree = vim.o.columns - (width + frame * 2)
 
     return {
-        row = math.max(0, math.floor(rowsFree * fraction[1])),
+        row = tabline + math.max(0, math.floor(rowsFree * fraction[1])),
         col = math.max(0, math.floor(columnsFree * fraction[2])),
     }
 end

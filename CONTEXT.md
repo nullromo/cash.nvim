@@ -365,8 +365,10 @@ screenshot — cannot also be the thing that dismisses it.
 
 Both the chooser and the drawer are placed by `placement`, which takes one of
 the nine names in `constants.positions` and turns it into a row and column. The
-command line and the status line are not free to be covered, so neither counts
-as space to place into.
+tabline, the status line and the command line are not free to be covered, so
+none of them counts as space to place into. Row 0 of the editor is the
+tabline's row whenever there is a tabline, so the top three positions start one
+row lower while one is there.
 
 ## The picker
 

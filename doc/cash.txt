@@ -786,8 +786,8 @@ drawer.position                                         *cash-drawer.position*
 
     Where the chooser and the cash drawer appear on screen. One of
     `'top-left'`, `'top'`, `'top-right'`, `'left'`, `'center'`, `'right'`,
-    `'bottom-left'`, `'bottom'` or `'bottom-right'`. The command line and the
-    status line are never covered.
+    `'bottom-left'`, `'bottom'` or `'bottom-right'`. The tabline, the
+    statusline, and the command line are never covered.
 
 chooser.border                                           *cash-chooser.border*
 drawer.border                                             *cash-drawer.border*
