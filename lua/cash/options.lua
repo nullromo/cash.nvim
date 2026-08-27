@@ -250,12 +250,13 @@ options.defaultOptions = {
 -- removedIn is a promise, so it goes in front of the user rather than only in
 -- a comment: the old name is read until that version and not after it. An
 -- entry whose removedIn has shipped comes out of this table, and the name
--- goes back to being one the catch-all in validateOptions does not know
+-- goes back to being one the catch-all in validateOptions does not know.
+--
+-- Empty at the moment. opts.prompt and opts.ui were read until 1.0.0 and came
+-- out here when it shipped, so neither is a name this plugin can tell apart
+-- from a typo any more
 ---@type table<string, cash.RenamedOption>
-options.renamedOptions = {
-    prompt = { newName = 'chooser', removedIn = '1.0.0' },
-    ui = { newName = 'drawer', removedIn = '1.0.0' },
-}
+options.renamedOptions = {}
 
 -- Moves anything written under an old option name over to the name it has
 -- now, warning once per name. Returns a new table; the caller's own table is
