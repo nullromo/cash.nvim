@@ -355,8 +355,14 @@ return function(h)
     )
 
     h.check(
-        'and the advice says how they got that way',
-        advice(clearedEntry):find('colorscheme', 1, true) ~= nil
+        'and the advice rules out the usual cause',
+        advice(clearedEntry):find('colorscheme is not what emptied', 1, true)
+            ~= nil
+    )
+
+    h.check(
+        'and says how to put them back',
+        advice(clearedEntry):find('setup() again', 1, true) ~= nil
     )
 
     h.group('termguicolors switched off')

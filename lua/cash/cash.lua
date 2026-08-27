@@ -527,6 +527,28 @@ CashModule.setUpAutocmds = function()
         callback = CashModule.updateHighlights,
     })
 
+    -- a colorscheme runs :highlight clear as it loads, which empties every
+    -- group it does not go on to set itself, and the nine cash register
+    -- groups are nine of those. Their matches carry on matching with no color
+    -- left to paint, and nothing says why, so the groups are made again here.
+    -- That covers a colorscheme loaded after this plugin by a plugin manager
+    -- as well as one switched to mid-session.
+    --
+    -- Only the groups. matchadd binds a match to a group by name and looks up
+    -- the color at draw time, so the matches on screen already point at
+    -- whatever the groups now say and there is nothing to rebuild.
+    --
+    -- The update afterwards is for Search, which the colorscheme has just
+    -- painted its own color onto. That one is not created here: it is written
+    -- on every update, and this is the update that writes it
+    vim.api.nvim_create_autocmd('ColorScheme', {
+        group = group,
+        callback = function()
+            highlights.setup(CashModule.opts.colors)
+            CashModule.updateHighlights()
+        end,
+    })
+
     -- changing ignorecase changes the case flag that every pattern without an
     -- explicit \c or \C resolves to, so the matches built from those patterns
     -- are no longer the ones that should be on screen

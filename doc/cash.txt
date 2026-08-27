@@ -1096,7 +1096,9 @@ CashRegister1 ... CashRegister9
 			The color of each cash register in the buffer. Created
 			during setup from `colors.highlightColors`, and used
 			both for the matches and for the register's row in the
-			drawer and the chooser.
+			drawer and the chooser. Created again whenever a
+			colorscheme loads, since loading one clears every
+			highlight group the colorscheme does not set itself.
 
                                                            *hl-CashRegisterFg*
 CashRegisterFg1 ... CashRegisterFg9
@@ -1129,7 +1131,8 @@ should cover that up.
 
 Setting any of these groups yourself is possible but pointless: Cash.nvim sets
 `Search` again on every update, and the `CashRegister` groups again on
-|cash.setup()|. Use the `colors.highlightColors` option instead.
+|cash.setup()| and on every |ColorScheme| event. Use the
+`colors.highlightColors` option instead.
 
 
 ==============================================================================
@@ -1245,8 +1248,8 @@ diagnose these problems. It reports:
     |cash-compat-n|.
 
   - Whether the |cash-highlight-groups| highlight groups still exist. The
-    setup function creates them, and a colorscheme loaded after setup could
-    clear them.
+    setup function creates them, and creates them again whenever a colorscheme
+    loads, so anything else that clears them is reported here.
 
   - Whether the cash registers can be saved, and what the last session left
     behind. See |cash-persistence|.

@@ -516,7 +516,8 @@ diagnose these problems. It reports:
 - Map origins for keys that Cash.nvim maps. A plugin that loads after Cash.nvim
   and maps one of these keys can replace the mapping.
 - Whether the `CashRegister` highlight groups still exist. The setup function
-  creates them, and a colorscheme loaded after setup could clear them.
+  creates them, and creates them again whenever a colorscheme loads, so anything
+  else that clears them is reported here.
 - Whether the cash registers can be saved, and what the last session left
   behind.
 

@@ -355,11 +355,13 @@ end
 
 -- whether the nine highlight groups still exist.
 --
--- Worth asking because they are created once, during setup, and a colorscheme
--- loaded afterwards clears every highlight group it did not set itself. The
--- working cash register survives that, since its color goes on the Search
--- group on every update; the other eight do not, and their matches carry on
--- matching while painting nothing at all
+-- Worth asking because a match whose group is empty carries on matching while
+-- painting nothing at all, which is the quietest failure this plugin has. A
+-- colorscheme is the usual way a group gets emptied -- loading one clears
+-- every group it does not go on to set itself -- and that one is dealt with
+-- by the ColorScheme autocommand that makes the groups again. What is left is
+-- anything else that clears them, which nothing can be done about in advance,
+-- so it is reported here instead
 local checkHighlightGroups = function()
     vim.health.start('Highlight groups')
 
@@ -378,11 +380,12 @@ local checkHighlightGroups = function()
 
     vim.health.warn(
         'these highlight groups are empty: ' .. table.concat(missing, ', '),
-        'Cash.nvim defines them during setup, and a colorscheme loaded after '
-            .. 'setup clears them. Their cash registers are still matching, '
-            .. 'but the matches have no color to paint. Run '
-            .. "require('cash').setup() again after your colorscheme, or "
-            .. 'from a ColorScheme autocommand'
+        'Their cash registers are still matching, but the matches have no '
+            .. 'color to paint. Cash.nvim creates these groups during setup '
+            .. 'and creates them again whenever a colorscheme loads, so a '
+            .. 'colorscheme is not what emptied them: something else has '
+            .. "cleared them since. Run require('cash').setup() again to put "
+            .. 'them back'
     )
 end
 

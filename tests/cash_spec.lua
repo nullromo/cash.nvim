@@ -457,4 +457,66 @@ return function(h)
 
         fresh()
     end
+
+    ----------------------------------------------------------------------
+
+    -- issue #27: the groups are made during setup, and loading a colorscheme
+    -- clears every group the colorscheme does not go on to set itself. The
+    -- matches were left pointing at nine empty groups, still matching and
+    -- painting nothing, with nothing to say why
+    h.group('a colorscheme loaded after setup')
+
+    do
+        local window = fresh()
+        cash.setCashRegister(2)
+        cash.setSearch('bar')
+        cash.setCashRegister(3)
+
+        local groupsBefore = {}
+        for index = 1, 9 do
+            groupsBefore['CashRegister' .. index] =
+                vim.api.nvim_get_hl(0, { name = 'CashRegister' .. index })
+            groupsBefore['CashRegisterFg' .. index] =
+                vim.api.nvim_get_hl(0, { name = 'CashRegisterFg' .. index })
+        end
+        local searchBefore = vim.api.nvim_get_hl(0, { name = 'Search' })
+        local matchesBefore = vim.fn.getmatches(window)
+
+        vim.cmd.colorscheme('habamax')
+
+        local groupsAfter = {}
+        for name in pairs(groupsBefore) do
+            groupsAfter[name] = vim.api.nvim_get_hl(0, { name = name })
+        end
+
+        h.check(
+            'leaves every cash register group as it was',
+            vim.deep_equal(groupsAfter, groupsBefore),
+            'CashRegister2 became ' .. vim.inspect(groupsAfter['CashRegister2'])
+        )
+
+        h.check(
+            'and puts the working cash register back on Search',
+            vim.deep_equal(
+                vim.api.nvim_get_hl(0, { name = 'Search' }),
+                searchBefore
+            ),
+            'became '
+                .. vim.inspect(vim.api.nvim_get_hl(0, { name = 'Search' }))
+        )
+
+        -- matchadd binds a match to a group by name and looks the color up at
+        -- draw time, so re-creating the groups is the whole fix. A match that
+        -- was deleted and added again would come back with a new ID
+        h.check(
+            'without rebuilding a single match',
+            vim.deep_equal(vim.fn.getmatches(window), matchesBefore),
+            'became ' .. vim.inspect(vim.fn.getmatches(window))
+        )
+
+        -- the rest of the suite shares this neovim, and is entitled to the
+        -- colorscheme it started with
+        vim.cmd.colorscheme('default')
+        fresh()
+    end
 end
