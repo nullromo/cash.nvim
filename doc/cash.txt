@@ -51,8 +51,8 @@ Each one holds its own search pattern and is drawn in its own color, and all
 nine can be lit up at the same time. One of the nine is the "working" or
 "active" cash register: the one a search writes into. This is also the one |n|
 and |N| move through. |n| and |N| can also be configured to move through the
-union of multiple cash registers. Press `?` followed by a digit to work in a
-different cash register.
+union of multiple cash registers. Press `?` followed by a digit or use `<F1>`
+to `<F9>` to work in a different cash register.
 
 Ordinary searching is unchanged. |/|, |star|, |#|, |gstar|, |g#|, |n|, |N|,
 'hlsearch' and |:nohlsearch| all do what they always did—there are simply
@@ -66,10 +66,11 @@ Call |cash.setup()| once, then:
 
   - Search for something with |/|. It lights up in cash register 1's color.
   - Press `?` to make the chooser appear. Press `2`, and `2` becomes the
-    working cash register. See |cash-chooser|.
+    working cash register. See |cash-chooser|. `<F2>` does the same thing
+    without the chooser; see |cash-function-keys|.
   - Move the cursor onto text lit in another cash register's color and press
-    `??` to work in whichever cash register that turns out to be. See
-    |cash-??|.
+    `??` or `<F10>` to work in whichever cash register that turns out to be.
+    See |cash-??|.
   - Search for something else. The first search is still lit in its own color.
   - |n| and |N| move between the matches of the working cash register only,
     unless you ask for more. See |cash-include-in-search|.
@@ -299,6 +300,10 @@ Pressing `?` in normal mode brings up the chooser and waits for one keypress.
 A digit from 1 to 9 makes that cash register the working one, a second `?`
 makes the cash register under the cursor the working one (see |cash-??|), and
 anything else closes the chooser.
+
+Setting `mapKeys.questionMark` to `false` leaves `?` alone, which takes the
+chooser away and leaves the `?` key on Vim's default (backward search). See
+|cash-mapKeys.questionMark|.
 
 The chooser looks like this: >
 
@@ -663,6 +668,8 @@ a message rather than acted on.
                         |cash-chooser|. This replaces Vim's backward search;
                         see |cash-compatibility|.
 
+                        Only created when `mapKeys.questionMark` is `true`.
+
                                                                      *cash-??*
 ??                      Normal mode. Select the cash register that is
 			highlighting the text under the cursor. This is like
@@ -683,6 +690,20 @@ a message rather than acted on.
 			next one, wrapping around.
 
                         |:Cash-here| does the same thing.
+
+                        Only created when `mapKeys.questionMark` is `true`.
+                        `<F10>` does the same thing; see
+                        |cash-function-keys|.
+
+                                                          *cash-function-keys*
+<F1> <F2> ... <F9>      Normal mode. Select cash register 1 ... 9. No chooser
+                        appears. 
+
+                                                                    *cash-F10*
+<F10>                   Same as `??`
+
+			Only created when `mapKeys.functionKeys` is `true`.
+			See |cash-mapKeys.functionKeys|.
 
                                                              *cash-n* *cash-N*
 n                       Normal mode. Move to the next match from among the
@@ -759,6 +780,10 @@ Defaults: >lua
             brackets = 'heavy-angle',
         },
         manageJumps = true,
+        mapKeys = {
+            functionKeys = true,
+            questionMark = true,
+        },
         persistCashRegisters = true,
         respectHLSearch = false,
     })
@@ -918,6 +943,29 @@ manageJumps                                                 *cash-manageJumps*
 
     Set this to `false` to leave the keys alone entirely, at the cost of
     |cash-include-in-search| doing nothing.
+
+mapKeys.functionKeys                               *cash-mapKeys.functionKeys*
+                        boolean, default `true`
+
+    Map the nine cash registers to `<F1>` through `<F9>`. Also map the cash
+    register under the cursor to `<F10>`. No chooser appears for these. See
+    |cash-function-keys|.
+
+    Set this to `false` to leave the function keys alone, which also gives
+    |<F1>| back to |:help|. If these are mapped, any mapping you already had
+    on one of these keys is replaced rather than wrapped. This is different
+    from Cash.nvim's handling of |star| and |#|.
+
+mapKeys.questionMark                               *cash-mapKeys.questionMark*
+                        boolean, default `true`
+
+    Map `?` to the chooser and `??` to the cash register under the cursor. See
+    |cash-chooser| and |cash-??|.
+
+    Set this to `false` to leave `?` alone, which gives back Vim's backward
+    search (see |cash-compat-question|) and takes the chooser away with it.
+    `<F10>` still makes the `??` pick while `mapKeys.functionKeys` is on, and
+    |:Cash-use| and |:Cash-here| always work as alternatives.
 
 persistCashRegisters                               *cash-persistCashRegisters*
                         boolean, default `true`
@@ -1175,6 +1223,19 @@ on another key: >lua
 
     vim.keymap.set('n', '<Leader>?', '?')
 <
+Setting `mapKeys.questionMark` to `false` leaves `?` alone entirely, which is
+the other way of getting it back. The function keys still switch cash
+registers; see |cash-function-keys|.
+
+THE FUNCTION KEYS ARE TAKEN                              *cash-compat-F-keys*
+
+Cash.nvim maps `<F1>` through `<F10>` in normal mode, so |<F1>| no longer
+opens |:help|. Set `mapKeys.functionKeys` to `false` to leave the function
+keys alone.
+
+Unlike |star| and |#|, a mapping you already had on one of these keys is
+replaced rather than wrapped.
+
 n AND N ARE MAPPED                                             *cash-compat-n*
 
 With `manageJumps` on, which is the default, |n| and |N| belong to Cash.nvim

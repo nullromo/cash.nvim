@@ -13,6 +13,7 @@
 
 return function(h)
     local cash = require('cash')
+    local constants = require('cash.constants')
     local health = require('cash.health')
     local persist = require('cash.persist')
 
@@ -94,9 +95,15 @@ return function(h)
     end
 
     -- a plugin freshly set up, with nothing left over from another spec on the
-    -- keys this one takes away
+    -- keys this one takes away. The function keys are cleared too, even in
+    -- cases that switch them off, since a case that leaves a stand-in on one of
+    -- them would otherwise carry it into the next
     local function fresh(opts)
-        for _, key in ipairs({ '*', '#', 'g*', 'g#', 'n', 'N', '?' }) do
+        local keys = { '*', '#', 'g*', 'g#', 'n', 'N', '?' }
+        vim.list_extend(keys, constants.functionKeys.registers)
+        table.insert(keys, constants.functionKeys.underCursor)
+
+        for _, key in ipairs(keys) do
             pcall(vim.keymap.del, 'n', key)
         end
         vim.g[persist.variableName] = nil
@@ -297,6 +304,81 @@ return function(h)
         'and every one of them is a real tag',
         #missing == 0,
         'not in doc/tags: ' .. table.concat(missing, ', ')
+    )
+
+    -- mapKeys decides whether the keys that switch cash registers are checked
+    -- at all, so each half of it gets a pass
+    h.group('the keys mapKeys decides')
+
+    fresh()
+    local bothOn = report()
+
+    h.check(
+        'the ten function keys get one line while they are all ours',
+        find(bothOn, 'ok', "<F1> to <F10> are all Cash.nvim's") ~= nil
+    )
+
+    fresh()
+    vim.keymap.del('n', '<F3>')
+    vim.keymap.set('n', '<F3>', '<Nop>', { desc = 'a stand-in' })
+    local oneTaken = report()
+
+    h.check(
+        'a function key something else has taken is named on its own',
+        find(oneTaken, 'info', '<F3> is mapped by something else') ~= nil
+    )
+
+    h.check(
+        'and the ten are no longer called fine',
+        find(oneTaken, 'ok', 'are all Cash.nvim') == nil
+    )
+
+    local functionMissing = {}
+    for _, entry in ipairs(oneTaken) do
+        for tag in entry.message:gmatch(':help ([^%s]+)') do
+            if not tags[tag] then
+                table.insert(functionMissing, tag)
+            end
+        end
+    end
+
+    h.check(
+        'the tag it points at is a real one too',
+        #functionMissing == 0,
+        'not in doc/tags: ' .. table.concat(functionMissing, ', ')
+    )
+
+    fresh({ mapKeys = { functionKeys = false } })
+    local noFunctionKeys = report()
+
+    h.check(
+        'the function keys switched off are not asked about',
+        find(noFunctionKeys, 'ok', 'are all Cash.nvim') == nil
+            and find(noFunctionKeys, 'warn', '<F1> is not mapped') == nil
+    )
+
+    h.check(
+        'and the report says why',
+        find(noFunctionKeys, 'info', 'mapKeys.functionKeys is off') ~= nil
+    )
+
+    fresh({ mapKeys = { questionMark = false } })
+    local noQuestionMark = report()
+
+    h.check(
+        '? switched off is not asked about either',
+        find(noQuestionMark, 'ok', "? is Cash.nvim's") == nil
+            and find(noQuestionMark, 'warn', '? is not mapped') == nil
+    )
+
+    h.check(
+        'and the report says why, and what still switches cash registers',
+        (function()
+            local said =
+                find(noQuestionMark, 'info', 'mapKeys.questionMark is off')
+            return said ~= nil
+                and said.message:find(':Cash here', 1, true) ~= nil
+        end)()
     )
 
     -- the stand-ins would otherwise still be sitting on the keys

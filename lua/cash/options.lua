@@ -29,6 +29,7 @@ local options = {}
 ---@field disableStarPoundJump? boolean
 ---@field drawer? cash.DrawerOptions
 ---@field indicator? cash.IndicatorOptions
+---@field mapKeys? cash.MapKeysOptions
 ---@field manageJumps? boolean
 ---@field persistCashRegisters? boolean
 ---@field respectHLSearch? boolean
@@ -52,6 +53,12 @@ local options = {}
 -- has, or the two strings to use
 ---@alias cash.BracketOption cash.BracketStyle | cash.Brackets
 
+-- which of the keys that switch cash registers this plugin maps. Both are on
+-- by default, and either can be switched off on its own
+---@class cash.MapKeysOptions
+---@field functionKeys? boolean
+---@field questionMark? boolean
+
 ---@class cash.IndicatorOptions
 ---@field show? boolean
 ---@field style? cash.IndicatorStyle
@@ -70,6 +77,7 @@ local options = {}
 ---@field disableStarPoundJump boolean
 ---@field drawer cash.ResolvedDrawerOptions
 ---@field indicator cash.ResolvedIndicatorOptions
+---@field mapKeys cash.ResolvedMapKeysOptions
 ---@field manageJumps boolean
 ---@field persistCashRegisters boolean
 ---@field respectHLSearch boolean
@@ -90,6 +98,10 @@ local options = {}
 ---@field border cash.Border
 ---@field position cash.Position
 ---@field detailPane boolean
+
+---@class cash.ResolvedMapKeysOptions
+---@field functionKeys boolean
+---@field questionMark boolean
 
 ---@class cash.ResolvedIndicatorOptions
 ---@field show boolean
@@ -189,6 +201,20 @@ options.defaultOptions = {
         brackets = vim.deepcopy(
             constants.brackets[constants.defaultBracketStyle]
         ),
+    },
+    -- which of the keys that switch the working cash register this plugin
+    -- maps. Both are on, and either can be switched off on its own without
+    -- touching the other
+    mapKeys = {
+        -- put the nine cash registers on <F1> to <F9>, and the one under the
+        -- cursor on <F10>. No chooser appears: the key names the cash register
+        -- it selects, so there is nothing to ask about. Switch this off to
+        -- leave the function keys alone, which also gives <F1> back to :help
+        functionKeys = true,
+        -- map ? to the chooser, and ?? to the cash register under the cursor.
+        -- Switch this off to leave ? alone, which gives back vim's backward
+        -- search and takes the chooser away with it
+        questionMark = true,
     },
     -- let this plugin own n and N, so that they can move between the matches
     -- of every cash register in the search set. With one cash register in the
@@ -514,6 +540,18 @@ options.validateOptions = function(opts)
                     end
                 elseif key2 == 'brackets' then
                     options.validateBrackets(value2, name2)
+                else
+                    error(
+                        '"' .. name2 .. '" ' .. constants.invalidOptionMessage
+                    )
+                end
+            end
+        elseif key1 == 'mapKeys' then
+            util.checkType(value1, name1 .. '.mapKeys', 'table')
+            for key2, value2 in pairs(value1) do
+                local name2 = name1 .. '.mapKeys.' .. key2
+                if key2 == 'functionKeys' or key2 == 'questionMark' then
+                    util.checkType(value2, name2, 'boolean')
                 else
                     error(
                         '"' .. name2 .. '" ' .. constants.invalidOptionMessage

@@ -1,14 +1,29 @@
+local constants = require('cash.constants')
 local ui = require('cash.ui')
 local util = require('cash.util')
 
 local keymaps = {}
 
 -- every mapping this plugin makes says so, both so that which-key and friends
--- have something to show and so that addKeyTrigger can recognise its own work.
--- Exported because it is also how the health check tells a key this plugin
--- still owns from one something else has since taken
+-- have something to show and so that isOurs below can recognise this plugin's
+-- own work. Exported so that the prefix is readable from outside, since it is
+-- the one thing every Cash.nvim mapping has in common
 local ownMapping = 'Cash.nvim: '
 keymaps.ownMapping = ownMapping
+
+-- true when the mapping currently on a key is one this plugin made.
+--
+-- Exported because three callers need the same answer: addKeyTrigger, to
+-- replace its own earlier work rather than wrap it; releaseUnmappedKeys, to
+-- take back only the keys this plugin gave out; and the health check, to tell
+-- a key this plugin still owns from one something else has since taken
+---@param keymap table whatever maparg handed back
+---@return boolean
+keymaps.isOurs = function(keymap)
+    return next(keymap) ~= nil
+        and type(keymap.desc) == 'string'
+        and vim.startswith(keymap.desc, ownMapping)
+end
 
 -- adds a mapping without disturbing existing mappings.
 --
@@ -31,11 +46,7 @@ local addKeyTrigger = function(mode, key, callback, prepend, runsTheKey, desc)
     -- a mapping this plugin made earlier is replaced rather than wrapped.
     -- Wrapped, a second setup would leave two of them on the key and the
     -- search would happen twice for one keypress
-    if
-        next(keymap) ~= nil
-        and type(keymap.desc) == 'string'
-        and vim.startswith(keymap.desc, ownMapping)
-    then
+    if keymaps.isOurs(keymap) then
         keymap = {}
     end
 
@@ -89,39 +100,112 @@ local addKeyTrigger = function(mode, key, callback, prepend, runsTheKey, desc)
     end, { remap = true, desc = desc })
 end
 
+-- gives back the keys mapKeys has switched off.
+--
+-- Only mappings this plugin made are removed, so a key something else has
+-- claimed since is left with whatever claimed it. Switching one of the two off
+-- and calling setup again is what this exists for: without it the keys would
+-- still be switching cash registers after the option that asked for them had
+-- been turned off, and `?` would still be the chooser rather than the backward
+-- search it was supposed to give back
+---@param mapKeys cash.ResolvedMapKeysOptions
+local releaseUnmappedKeys = function(mapKeys)
+    ---@type string[]
+    local unwanted = {}
+
+    if not mapKeys.questionMark then
+        table.insert(unwanted, '?')
+    end
+
+    if not mapKeys.functionKeys then
+        vim.list_extend(unwanted, constants.functionKeys.registers)
+        table.insert(unwanted, constants.functionKeys.underCursor)
+    end
+
+    for _, key in ipairs(unwanted) do
+        local keymap = vim.fn.maparg(key, 'n', false, true) --[[@as table]]
+        if keymaps.isOurs(keymap) then
+            vim.keymap.del('n', key)
+        end
+    end
+end
+
+-- puts the nine cash registers on <F1> to <F9>, and the under-cursor pick on
+-- <F10>.
+--
+-- No chooser: the key names the cash register it selects, so there is nothing
+-- for a popup to answer. What the chooser is for is the gap between "the green
+-- one" and "cash register 4", and <F4> has no such gap.
+--
+-- These mappings replace whatever was on the key rather than wrapping it, the
+-- way addKeyTrigger does for `*` and friends. Wrapping is right there because
+-- the key still has its own work to do and this plugin only wants to hear
+-- about it. Here the key's whole job is the one this plugin gives it, and <F1>
+-- going on to open the help as well is not a mapping anybody asked for
+---@param cash cash.Module
+local setUpFunctionKeys = function(cash)
+    for index, key in ipairs(constants.functionKeys.registers) do
+        vim.keymap.set('n', key, function()
+            cash.setCashRegister(index)
+        end, { desc = ownMapping .. 'use cash register ' .. index })
+    end
+
+    vim.keymap.set(
+        'n',
+        constants.functionKeys.underCursor,
+        cash.setCashRegisterUnderCursor,
+        { desc = ownMapping .. 'use the cash register under the cursor' }
+    )
+end
+
 ---@param cash cash.Module
 keymaps.setUpKeymaps = function(cash)
-    -- set the cash register switching keymap. Use ?<number> to swap to the
-    -- <number>-th search pattern, or ?? for whichever cash register is
-    -- highlighting the text under the cursor
-    vim.keymap.set('n', '?', function()
-        -- the chooser shows which number is which color, so that the digit to
-        -- press is on screen rather than in the user's memory. chooser.style =
-        -- 'none' asks with a message instead, as this always used to
-        local choice = ui.chooseRegister(cash)
+    -- set the cash register switching keymaps, which is what mapKeys decides.
+    -- Whatever it says, the keys it has switched off are given back first, so
+    -- that switching one off and calling setup again does not leave the last
+    -- setup's mappings behind still switching cash registers
+    releaseUnmappedKeys(cash.opts.mapKeys)
 
-        if choice == nil then
-            vim.notify(
-                'Cash.nvim: you must enter a digit from 1 to 9 to choose a '
-                    .. 'cash register'
-            )
-            return
-        end
+    -- ?<number> swaps to the <number>-th search pattern, and ?? swaps to
+    -- whichever cash register is highlighting the text under the cursor
+    if cash.opts.mapKeys.questionMark then
+        vim.keymap.set('n', '?', function()
+            -- the chooser shows which number is which color, so that the digit
+            -- to press is on screen rather than in the user's memory.
+            -- chooser.style = 'none' asks with a message instead, as this
+            -- always used to
+            local choice = ui.chooseRegister(cash)
 
-        -- a second ? asks for the cash register that is highlighting the text
-        -- under the cursor, which is a question about the buffer rather than
-        -- about the nine
-        if choice == 'under-cursor' then
-            cash.setCashRegisterUnderCursor()
-            return
-        end
+            if choice == nil then
+                vim.notify(
+                    'Cash.nvim: you must enter a digit from 1 to 9 to choose '
+                        .. 'a cash register'
+                )
+                return
+            end
 
-        -- the chooser answers with one of the nine or with the one under the
-        -- cursor, and the other of the two has just been dealt with. The
-        -- checker cannot work that out for itself
-        ---@cast choice cash.RegisterIndex
-        cash.setCashRegister(choice)
-    end, { desc = ownMapping .. 'choose the working cash register' })
+            -- a second ? asks for the cash register that is highlighting the
+            -- text under the cursor, which is a question about the buffer
+            -- rather than about the nine
+            if choice == 'under-cursor' then
+                cash.setCashRegisterUnderCursor()
+                return
+            end
+
+            -- the chooser answers with one of the nine or with the one under
+            -- the cursor, and the other of the two has just been dealt with.
+            -- The checker cannot work that out for itself
+            ---@cast choice cash.RegisterIndex
+            cash.setCashRegister(choice)
+        end, { desc = ownMapping .. 'choose the working cash register' })
+    end
+
+    -- <F1> to <F9> for the nine, and <F10> for the one under the cursor. These
+    -- sit alongside ? rather than instead of it: both are on by default, and
+    -- either can be switched off on its own
+    if cash.opts.mapKeys.functionKeys then
+        setUpFunctionKeys(cash)
+    end
 
     -- run custom functions after searching. Whenever the user performs a normal
     -- search, we need to make sure to update some things

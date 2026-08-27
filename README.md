@@ -17,8 +17,9 @@ each cash register.
 
 ## 💳 TL;DR / Quick Start
 
-Use <kbd>?</kbd>`<number>` (1-9) to select a cash register. This gives you 9
-individual searches that can be highlighted simultaneously.
+Use <kbd>?</kbd>`<number>` (1-9), or <kbd>F1</kbd>-<kbd>F9</kbd>, to select a
+cash register. This gives you 9 individual searches that can be highlighted
+simultaneously.
 
 ## 🪙 Video Demo
 
@@ -85,6 +86,13 @@ cursor, which is the one that <kbd>?</kbd> switches to.
 
 The look of the chooser can be customized via the `chooser.style` option.
 
+The function keys do the same job without the chooser. <kbd>F1</kbd> through
+<kbd>F9</kbd> select cash registers 1 through 9, and <kbd>F10</kbd> selects the
+cash register that is highlighting the text under the cursor.
+
+The `mapKeys` option can be used to disable these sets of keymaps. Both are on
+by default.
+
 Once you change cash registers, the search highlighting of the old cash register
 will remain on the screen. You can then perform a new search independent of the
 previous one. Any search you perform will always overwrite the contents of the
@@ -100,7 +108,8 @@ the `includeInSearch` option.
 
 Sometimes you can see the color you want but you don't know the number of the
 cash register it belongs to. Move the cursor onto text that a cash register is
-highlighting and press <kbd>?</kbd><kbd>?</kbd> to switch to that cash register.
+highlighting and press <kbd>?</kbd><kbd>?</kbd> or <kbd>F10</kbd> to switch to
+that cash register.
 
 `:Cash here` and `require('cash').setCashRegisterUnderCursor()` do the same
 thing.
@@ -311,7 +320,11 @@ registers instead.
 
 ## 💶 Compatibility Issues / Warnings
 
-Cash.nvim will overwrite the default behavior of the <kbd>?</kbd> key.
+Cash.nvim will overwrite the default behavior of the <kbd>?</kbd> key, and will
+remap the <kbd>F1</kbd>-<kbd>F10</kbd> keys. Set `mapKeys.questionMark = false`
+or `mapKeys.functionKeys = false` to prevent this. Unlike with <kbd>\*</kbd> and
+<kbd>#</kbd>, mappings already present for the function keys will be replaced
+rather than wrapped.
 
 Cash.nvim also maps <kbd>n</kbd> and <kbd>N</kbd> in normal mode, so that they
 can jump between the matches of more than one cash register (see
@@ -425,6 +438,14 @@ type there, like this:
     -- let this plugin own n and N, so that they can jump between the matches
     -- of every cash register in the search set
     manageJumps = true,
+    -- which keys this plugin maps
+    mapKeys = {
+        -- <F1> through <F9> for the nine cash registers and <F10> for the
+        -- register under the cursor. No chooser appears for these
+        functionKeys = true,
+        -- ? for the chooser and ?? for the register under the cursor
+        questionMark = true,
+    },
     -- carry the cash registers from one Neovim to the next in the shada file,
     -- the way Vim already remembers your last search
     persistCashRegisters = true,
@@ -443,6 +464,8 @@ type there, like this:
 | `colors.highlightColors`                                        | list of 9 `{ bg = string, fg = string }` items    | see above                                                         | This is a table of 9 values, each with a `bg` and `fg` field. These define the highlight colors for each of the 9 available cash registers. If a `bg` or `fg` value is not specified in one of these entries, then the `colors.defaultBG`/`colors.defaultFG` color will be used. Colors should be of the form `'#RRGGBB'`.                                                                                     |
 | `disableStarPoundJump`                                          | boolean                                           | `true`                                                            | By default, Vim will jump you to the next occurrence of a search term if you initiate the search using <kbd>\*</kbd>, <kbd>#</kbd>, <kbd>g\*</kbd>, or <kbd>g#</kbd>. Cash.nvim disables this by default. You can preserve Vim's default behavior by setting this option to `false`. A count (e.g. <kbd>3</kbd><kbd>\*</kbd>) jumps either way.                                                                |
 | `manageJumps`                                                   | boolean                                           | `true`                                                            | Cash.nvim maps <kbd>n</kbd> and <kbd>N</kbd> so that they can jump between the matches of every cash register in the search set. With only one cash register in the search set, the mapping uses Vim's default behavior, so nothing changes until you turn `includeInSearch` on for more than one cash register. Set this to `false` to leave the keys alone, which also turns `includeInSearch` into a no-op. |
+| `mapKeys.functionKeys`                                          | boolean                                           | `true`                                                            | Map the nine cash registers to the function keys (<kbd>F1</kbd>-<kbd>F9</kbd>) and map <kbd>F10</kbd> as well. No chooser appears for these.                                                                                                                                                                                                                                                                   |
+| `mapKeys.questionMark`                                          | boolean                                           | `true`                                                            | Map <kbd>?</kbd> to the chooser and <kbd>?</kbd><kbd>?</kbd> to the cash register under the cursor. Set this to `false` to leave <kbd>?</kbd> alone.                                                                                                                                                                                                                                                           |
 | `persistCashRegisters`                                          | boolean                                           | `true`                                                            | Carry the cash registers from one Neovim to the next in the [shada](#persistence) file, the way Vim already remembers your last search. All nine search patterns, their `includeInSearch` values, and the working cash register all come back. Set this to `false` to start every session with nine empty cash registers.                                                                                      |
 | `respectHLSearch`                                               | boolean                                           | `false`                                                           | In order to enable search highlighting for the current search, you need to enable the `hlsearch` Vim option. Cash.nvim does this automatically, but if you want your `hlsearch` setting to be left as-is, then you can set this option to `true`.                                                                                                                                                              |
 | `autoNoHighlight`                                               | boolean                                           | `false`                                                           | Clear every cash register's highlighting as soon as the cursor moves. The cursor movement made by the search itself does not count. Switchable with `:Cash autohide`.                                                                                                                                                                                                                                          |

@@ -48,6 +48,37 @@ constants.positions = {
     'bottom-right',
 }
 
+-- The keys mapKeys.functionKeys asks for: one per cash register, and a tenth
+-- for whichever cash register is highlighting the text under the cursor.
+--
+-- <F10> gets the under-cursor pick because it is the key left over after the
+-- nine, and because that pick has nowhere else to go. `??` is a gesture that
+-- needs the chooser to press `?` twice in, so with the chooser switched off it
+-- needs a key of its own.
+--
+-- Written out here rather than built with a loop where they are mapped,
+-- because keymaps and the health check both read them and one list is one
+-- fewer place for the two to disagree
+---@class cash.FunctionKeys
+---@field registers string[] nine keys, cash register 1 to 9 in order
+---@field underCursor string what `??` does when the chooser is not there
+
+---@type cash.FunctionKeys
+constants.functionKeys = {
+    registers = {
+        '<F1>',
+        '<F2>',
+        '<F3>',
+        '<F4>',
+        '<F5>',
+        '<F6>',
+        '<F7>',
+        '<F8>',
+        '<F9>',
+    },
+    underCursor = '<F10>',
+}
+
 ---@alias cash.ChooserStyle 'grid' | 'strip' | 'none'
 
 -- what the ? chooser can look like

@@ -1,4 +1,5 @@
 local cash = require('cash.cash')
+local constants = require('cash.constants')
 local keymaps = require('cash.keymaps')
 local options = require('cash.options')
 local persist = require('cash.persist')
@@ -30,16 +31,6 @@ local minimumVersion = { major = 0, minor = 10 }
 local versionString = function()
     local version = vim.version()
     return version.major .. '.' .. version.minor .. '.' .. version.patch
-end
-
--- true when the mapping currently on a key is one this plugin made. Every
--- mapping Cash.nvim sets carries the same desc prefix, which is also how
--- addKeyTrigger tells its own work apart from someone else's
----@param keymap table whatever maparg handed back
----@return boolean
-local isOurs = function(keymap)
-    return type(keymap.desc) == 'string'
-        and vim.startswith(keymap.desc, keymaps.ownMapping)
 end
 
 -- names the mapping that took a key, so that the report says who to go and
@@ -75,19 +66,11 @@ end
 ---@field otherwise string what is lost when it does not, as a sentence
 ---@field see? string a help tag worth reading about this key
 
--- every key Cash.nvim maps. n and N are checked only when manageJumps is on,
--- which is the one claim the user can call off
+-- the keys Cash.nvim claims whatever the options say. The claims an option can
+-- call off are kept below: n and N, which manageJumps decides, and the keys
+-- that switch cash registers, which mapKeys decides
 ---@type cash.ClaimedKey[]
 local claimedKeys = {
-    {
-        mode = 'n',
-        key = '?',
-        label = '?',
-        api = 'cash.setCashRegister()',
-        otherwise = 'the chooser and ?? are out of reach, though :Cash use '
-            .. '<number> and :Cash here still switch cash registers.',
-        see = 'cash-chooser',
-    },
     {
         mode = 'n',
         key = '*',
@@ -159,6 +142,57 @@ local jumpKeys = {
     },
 }
 
+-- the key mapKeys.questionMark asks for. Kept apart from the rest for the same
+-- reason the jump keys are: whether it is claimed at all is an option
+---@type cash.ClaimedKey
+local questionMarkKey = {
+    mode = 'n',
+    key = '?',
+    label = '?',
+    api = 'cash.setCashRegister()',
+    otherwise = 'the chooser and ?? are out of reach, though :Cash use '
+        .. '<number> and :Cash here still switch cash registers.',
+    see = 'cash-chooser',
+}
+
+-- the ten keys mapKeys.functionKeys asks for, as claimed keys.
+--
+-- Built rather than written out, because the ten are already written out once
+-- in constants.functionKeys and a second copy here is a second place for the
+-- two to disagree
+---@return cash.ClaimedKey[]
+local functionClaimedKeys = function()
+    ---@type cash.ClaimedKey[]
+    local claimed = {}
+
+    for index, key in ipairs(constants.functionKeys.registers) do
+        table.insert(claimed, {
+            mode = 'n',
+            key = key,
+            label = key,
+            api = 'cash.setCashRegister(' .. index .. ')',
+            otherwise = 'it will not switch to cash register '
+                .. index
+                .. ', though :Cash use '
+                .. index
+                .. ' still will.',
+            see = 'cash-mapKeys.functionKeys',
+        })
+    end
+
+    table.insert(claimed, {
+        mode = 'n',
+        key = constants.functionKeys.underCursor,
+        label = constants.functionKeys.underCursor,
+        api = 'cash.setCashRegisterUnderCursor()',
+        otherwise = 'it will not switch to the cash register under the '
+            .. 'cursor, though :Cash here still will.',
+        see = 'cash-mapKeys.functionKeys',
+    })
+
+    return claimed
+end
+
 -- the command that names whatever put the current mapping on a key, which is
 -- the answer to the question this check has to leave open
 ---@param claimed cash.ClaimedKey
@@ -210,7 +244,7 @@ local checkKey = function(claimed)
         return
     end
 
-    if isOurs(keymap) then
+    if keymaps.isOurs(keymap) then
         vim.health.ok(claimed.label .. " is Cash.nvim's")
         return
     end
@@ -333,8 +367,61 @@ local checkConfiguration = function()
     end
 end
 
+-- the keys mapKeys has asked for, and a word about the ones it has not.
+--
+-- The function keys get one line between them while they are all still this
+-- plugin's. Ten ok lines saying the same thing is a report nobody reads to the
+-- end of, and the reason this check exists is the one key that is not ours, so
+-- any key that is not reports the same way every other claimed key does
+local checkMappedKeys = function()
+    if cash.opts.mapKeys.questionMark then
+        checkKey(questionMarkKey)
+    else
+        vim.health.info(
+            'mapKeys.questionMark is off, so ? is left alone and there is no '
+                .. 'chooser. :Cash use <number> and :Cash here still switch '
+                .. 'cash registers'
+        )
+    end
+
+    if not cash.opts.mapKeys.functionKeys then
+        vim.health.info(
+            'mapKeys.functionKeys is off, so '
+                .. constants.functionKeys.registers[1]
+                .. ' to '
+                .. constants.functionKeys.underCursor
+                .. ' are left alone'
+        )
+        return
+    end
+
+    local taken = {}
+    for _, claimed in ipairs(functionClaimedKeys()) do
+        local keymap = vim.fn.maparg(claimed.key, claimed.mode, false, true) --[[@as table]]
+        if not keymaps.isOurs(keymap) then
+            table.insert(taken, claimed)
+        end
+    end
+
+    if #taken == 0 then
+        vim.health.ok(
+            constants.functionKeys.registers[1]
+                .. ' to '
+                .. constants.functionKeys.underCursor
+                .. " are all Cash.nvim's"
+        )
+        return
+    end
+
+    for _, claimed in ipairs(taken) do
+        checkKey(claimed)
+    end
+end
+
 local checkMappings = function()
     vim.health.start('Mappings')
+
+    checkMappedKeys()
 
     for _, claimed in ipairs(claimedKeys) do
         checkKey(claimed)

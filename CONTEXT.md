@@ -423,6 +423,41 @@ With the pane open the drawer and the pane are placed as one block, so that
 `drawer.position` still positions what the user is looking at rather than
 positioning the drawer and letting the pane hang off the side.
 
+## The keys that switch cash registers
+
+Two groups of them, and `mapKeys` decides which are mapped. Both are on by
+default and either can be switched off on its own.
+
+<kbd>?</kbd> is the chooser, and <kbd>?</kbd><kbd>?</kbd> is the cash register
+under the cursor. <kbd>F1</kbd> through <kbd>F9</kbd> are the nine cash
+registers, and <kbd>F10</kbd> is the pick <kbd>?</kbd><kbd>?</kbd> makes. The
+ten keys live in `constants.functionKeys`, written out once so that `keymaps`
+and the health check cannot disagree about them.
+
+The function keys have no chooser, and that is not a setting they turn off. A
+key that names a cash register has nothing to ask about, so there is nothing
+for a popup to show. What the chooser is for is the gap between _the green one_
+and _cash register 4_, and <kbd>F4</kbd> has no such gap.
+
+<kbd>F10</kbd> gets the under-cursor pick because it is the key left over after
+the nine, and because that pick has nowhere else to go.
+<kbd>?</kbd><kbd>?</kbd> is a gesture that needs the chooser to press
+<kbd>?</kbd> twice in, so someone who has switched <kbd>?</kbd> off has no way
+to make it otherwise.
+
+The function keys are mapped with a plain `vim.keymap.set` rather than through
+`addKeyTrigger`. Wrapping is right for <kbd>\*</kbd> and friends because the
+key still has its own work to do and this plugin only wants to hear about it.
+Here the key's whole job is the one this plugin gives it, and <kbd>F1</kbd>
+going on to open the help as well is not a mapping anybody asked for.
+
+`releaseUnmappedKeys` takes back the keys `mapKeys` has switched off, before
+the ones it asked for are set up. Without it, switching one off and calling
+`setup` again would leave the last setup's mappings behind still switching cash
+registers, and <kbd>?</kbd> would still be the chooser rather than the backward
+search it was supposed to give back. Only mappings carrying the ownership
+marker are taken back.
+
 ## The chooser
 
 The popup <kbd>?</kbd> brings up, in `ui.openChooser`. A different tool from
@@ -703,13 +738,16 @@ The Vim highlight group carrying a cash register's colors, named
 ## Ownership marker
 
 The `Cash.nvim: ` prefix on the `desc` of every mapping this plugin makes, in
-`keymaps.ownMapping`.
+`keymaps.ownMapping`. `keymaps.isOurs` is the question asked of it.
 
-It is not decoration. Two things read it:
+It is not decoration. Three things read it:
 
 - `addKeyTrigger` uses it to tell its own earlier mapping apart from a foreign
   one, so that a second `setup` replaces its mapping instead of wrapping it and
   searching twice for one keypress.
+- `releaseUnmappedKeys` uses it to take back only the keys this plugin gave
+  out, so that a key something else has claimed since is left with whatever
+  claimed it.
 - The health check uses it to answer "does Cash.nvim still own this key", which
   is how a plugin that loaded later and quietly replaced <kbd>n</kbd> gets
   named.
