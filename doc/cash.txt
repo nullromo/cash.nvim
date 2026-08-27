@@ -1095,8 +1095,8 @@ cash.opts                                                          *cash.opts*
 CashRegister1 ... CashRegister9
 			The color of each cash register in the buffer. Created
 			during setup from `colors.highlightColors`, and used
-			both for the matches and for the register's row in the
-			drawer and the chooser. Created again whenever a
+			both for the highlighting and for the register's row in
+			the drawer and the chooser. Created again whenever a
 			colorscheme loads, since loading one clears every
 			highlight group the colorscheme does not set itself.
 
@@ -1123,11 +1123,40 @@ CashRegisterFg1 ... CashRegisterFg9
 			on with |n| looks the same no matter which cash
 			register it came from.
 
-The eight other matches are added with a priority below that of the search
-highlighting, so where two cash registers match the same text, the working one
-is the one you see. The current match is the exception. It goes above the
-search highlighting, because it indicates where the cursor is and nothing
-should cover that up.
+The eight other cash registers are drawn with extmarks, added while Vim is
+drawing each line. Vim's own search highlighting is a match, and a match
+covers an extmark, so where two cash registers match the same text the working
+one is still the one shown on top.
+
+Extmarks are used rather than |matchadd()| so that a cash register's color
+survives another plugin's highlighting of the same text instead of being
+replaced by it. Two matches over the same text do not blend. Instead, one
+replces the other. With extmarks on the other hand, the extmark is combined
+with whatever else modifies the text. For example, an LSP semantic token
+highlight that turns the text bold gives you bold text in your cash register's
+color rather than bold text with no color.
+
+The cost of this is that the matching is done one line at a time, so a pattern needing
+more than the line it is on is not highlighted in the eight non-working cash
+registers:
+
+	- matching across a line break, like `foo\nbar`
+	- anchored to a line number, like `\%23l` or `\%>10l`
+	- anchored to the cursor or the visual area, like `\%#` or `\%V`
+
+Searching for these still works, and |n| still visits their matches. The
+working cash register still highlights them too, since Vim draws that one
+itself with 'hlsearch'.
+
+The working cash register is still drawn using the normal matching, so various
+text effects will not merge. Vim draws the current match with 'hlsearch', so
+another plugin's highlighting of the same text is dropped rather than
+combined. With the same LSP highlight example from earlier, hovering over a
+symbol gives you your cash register's color without the bold (for the working
+cash register) while the other eight registers give you both.
+
+The current match highlighting is still a match, and thus it appears above the
+search highlighting. 
 
 Setting any of these groups yourself is possible but pointless: Cash.nvim sets
 `Search` again on every update, and the `CashRegister` groups again on
@@ -1164,6 +1193,12 @@ THE Search HIGHLIGHT IS RE-COLORED                     *cash-compat-search-hl*
 The |hl-Search| highlight group is set to the working cash register's color,
 so a colorscheme's own `Search` color is overridden. This is how the working
 cash register gets its color; see |cash-highlight-groups|.
+
+If another plugin highlights the same text as Cash.nvim, the eight non-working
+cash registers are drawn such that the other plugin's highlighting combines.
+The working cash register is drawn by Vim's 'hlsearch' instead, and that
+cannot combine, so there the other plugin's highlighting is dropped and you
+get just the register color. See |cash-highlight-groups| for details.
 
 hlsearch IS SWITCHED ON                                 *cash-compat-hlsearch*
 

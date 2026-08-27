@@ -81,9 +81,9 @@ resolved onto the front of it. An explicit `\c` or `\C` in the search pattern
 wins and makes `ignorecase` irrelevant to that register; otherwise the current
 value of `ignorecase` decides the flag.
 
-Match patterns are what the ledger stores, because two search patterns that are
-textually identical can need different highlights, and comparing the resolved
-form catches that.
+Match patterns are what the highlights module keeps, because two search
+patterns that are textually identical can need different highlights, and
+comparing the resolved form catches that.
 
 ## Current match
 
@@ -136,22 +136,97 @@ against 0.04ms bounded. What the bound gives up is a match that begins above the
 window and reaches down over the cursor, which takes a pattern matching across
 lines to arrive at.
 
-## Ledger
+## Painting
 
-The record of which matches this plugin has added to which windows:
-`ledger[windowID][index] = { id, matchPattern }`. Private to the highlights
-module.
+How a cash register's color gets on screen: an **ephemeral extmark**, added
+while Vim is drawing the line, from the decoration provider
+`highlights.setup` registers. Nothing is stored — the extmark lives for one
+redraw — so there is no record to reconcile against an edit, a scroll, a new
+window, or a closed one.
 
-An index with **no entry** has no match. That is the only way absence is
-spelled — there are no sentinel values, and no entry ever means "we tried and
-failed".
+Not a `matchadd`, and that is issue #13. Two matches covering the same text
+never blend: exactly one of them is painted and the other is dropped whole, and
+among equal priorities the one added last wins. A semantic token asking only for
+bold, added after the cash register's match at the same priority, therefore took
+the color away entirely. An extmark is **combined** with whatever else has
+something to say about the same text, so the color stays and the bold arrives on
+top of it.
 
-The ledger records what the plugin *did*. It is never the source of truth for
-which windows exist — that question is always put to Vim.
+What that costs is the matching and the extmarks. `matchadd` is given a pattern
+and Vim finds the matches itself; an extmark is given a range, so the plugin has
+to find them, and then one extmark goes in per match. Against eight cash
+registers whose patterns all match every visible line, a forced full redraw
+measured 1.7ms over a 0.4ms baseline, where the eight matches it replaces
+measured 1.0ms. Both are the same order of work, and `on_line` runs only for the
+lines Vim is actually redrawing, exactly as `matchadd` did.
+`highlights.paintsFor` finds them, one line at a time, over the lines Vim is
+about to draw:
 
-The current match is recorded separately, one entry per window rather than one
-per cash register, because it answers a different question and changes on a
-different beat. Absence is spelled the same way: no entry means no match.
+    paintsFor(buffer, row) -> { { index, group, startColumn, endColumn }, ... }
+
+Byte columns from 0, and `endColumn` is the column the paint stops before.
+Public, because an ephemeral extmark is gone by the time anything could read it:
+asking is the only way to find out what a line is painted, and that is what the
+specs do.
+
+Three things follow from matching a line at a time:
+
+- A pattern that needs more than the line it is on is not painted: one reaching
+  **across a line break**, and one anchored to a **position** — `\%23l`,
+  `\%>10l`, `\%#`, `\%V`. `matchadd` handled both, because Vim matched against
+  the buffer rather than against a line taken out of it. Everything else about
+  pattern semantics is unchanged, since Vim's own regex engine is still doing
+  the matching, through `vim.regex`. `paint_spec` pins both as known, so a
+  Neovim that starts answering them fails there and gets this paragraph
+  corrected.
+- Compiled patterns are cached, keyed by the match pattern. A match pattern
+  always compiles to the same thing, so an entry cannot go stale.
+- Lowest cash register first, so where two of them match the same text the
+  higher-numbered one is painted over it. Extmarks of equal priority are settled
+  by the order they were added, and going in index order is what makes that
+  answer the same every time rather than whichever cash register was written to
+  most recently.
+
+The priority, 5000, only decides who wins among **extmarks**. Vim's own search
+highlighting is a match, and a match covers an extmark whatever priority the
+extmark was given, which is what keeps the working cash register the one you see
+where two of them agree. 5000 is above the 4096 coc.nvim clamps its own
+highlights to and well above the 100 or so Treesitter and semantic tokens use,
+so a syntax highlight cannot take a cash register's color away.
+
+The **working cash register** does not merge, and cannot be made to. Vim draws
+it with `hlsearch`, which is a match, so another plugin's highlighting of the
+same text is dropped rather than combined. Hovering a symbol gives you the color
+without the bold there, where the other eight give you both.
+
+Making Vim paint nothing for `Search` does not help. Measured: redirecting
+`Search` to an empty group through `winhighlight`, `highlight clear Search`,
+`nvim_set_hl(0, 'Search', {})`, and `guibg=NONE guifg=NONE gui=NONE` all still
+drop the other plugin's highlight. The search highlighting takes the text
+whether or not it has a color to put there. The only two states that merge are
+`v:hlsearch = 0` and `'hlsearch'` off, which is to say the ones where Vim's
+search highlighting is genuinely not there.
+
+So the working cash register could only merge if the plugin stopped using
+`hlsearch` for it and painted it like the other eight. That costs `v:hlsearch`
+as the one switch all nine follow — with `'hlsearch'` off it reads 0 permanently,
+even straight after a search, so `:nohlsearch` would have nothing left to clear
+and the plugin would need state of its own. It also costs the preview of every
+other match while a search is still being typed, since `'incsearch'` draws those
+with `Search` from a pattern that is not in `@/` yet. Both are worth more than
+the bold, so the asymmetry stays.
+
+The **current match** is the other exception: it stays a `matchadd`, at
+priority 1.
+It has to sit above Vim's own search highlighting, and only a match can — Vim
+gives `hlsearch` priority 0 and only a match above 0 overrules it. So each of
+the two highlights uses the mechanism whose semantics it wants: the cash
+registers compose, and the current match wins outright.
+
+Windows are still tracked, in `highlights.trackedWindows`, but only for the
+current match, which is per window and is kept up to date on its own beat. The
+cash registers need no such record: a decoration provider is handed the window
+it is painting.
 
 ## updateHighlights
 
@@ -165,9 +240,9 @@ It makes the current match rule true at the same time, since both are about
 what a window has on it and both follow `v:hlsearch`.
 
 The `v:hlsearch` clause is what makes `:nohlsearch` mean all nine. Vim only
-ever applied it to the working cash register, since the other eight are matches
-rather than `hlsearch`; following the same flag puts them back under the one
-switch the user already reaches for. Nothing announces a change to
+ever applied it to the working cash register, since the other eight are this
+plugin's own painting rather than `hlsearch`; following the same flag puts them
+back under the one switch the user already reaches for. Nothing announces a change to
 `v:hlsearch`, so a `SafeState` autocmd compares it against the last value that
 was acted on. There is no separate "hidden" state — `v:hlsearch` **is** the
 state, which is why turning the highlights back on is not a thing anything has
@@ -182,10 +257,15 @@ them all away. Anything turning highlighting on goes through
 again from a `vim.schedule`, where it sticks. `autoNoHighlight` turns it off
 the same way, from a schedule.
 
-It works out what should be on screen, compares it against the ledger, and
-fixes the difference. It is idempotent: calling it twice does nothing the
-second time, so callers never have to know whether something has already been
-updated. Anything that can invalidate the highlights just calls it.
+It works the nine patterns out once and hands them to the decoration provider,
+which paints them on the next redraw, and it brings each window's current match
+in line. It is idempotent: calling it twice leaves the same thing on screen, so
+callers never have to know whether something has already been updated. Anything
+that can invalidate the highlights just calls it.
+
+`v:hlsearch` is the exception to going through here at all. The provider reads
+it as it paints, so `:nohlsearch` is off the screen the moment Vim next draws
+whether or not anything called this.
 
 In code: `highlights.update(cashRegisters, currentIndex, searchable)`, wrapped
 as `CashModule.updateHighlights()`. The searchable patterns are worked out by
@@ -322,8 +402,8 @@ Things the drawer has to do that are easy to get wrong:
 
 What <kbd>?</kbd> opens beside the drawer, in `ui.openPane`. Everything in it
 is about one cash register and does not fit on its row: the **match pattern**
-Vim is really given, whether it is included and whether it is selected, and the
-ledger entries for it — which windows are carrying a match.
+Vim is really given, whether it is included and whether it is selected, and
+which windows its pattern actually occurs in.
 
 It labels the match pattern **match pattern**, exactly as it is named below.
 Its one departure is **contents** for the search pattern as typed, which is the
@@ -334,9 +414,10 @@ already 23 rows tall, which is most of a small terminal. Height is the scarce
 direction; width is not. The cost is that the two together need 102 columns, and
 below that `openPane` says so rather than drawing something clipped.
 
-The selected cash register has no match of its own — it is drawn by Vim's
-`hlsearch` — so its **matching window IDs** cannot come from the ledger. The **selected** line
-is what accounts for that, rather than a sentence explaining it.
+The selected cash register is not painted by this plugin at all — it is drawn by
+Vim's `hlsearch` — so its **matching window IDs** cannot come from what the
+plugin says it is painting. The **selected** line is what accounts for that,
+rather than a sentence explaining it.
 
 With the pane open the drawer and the pane are placed as one block, so that
 `drawer.position` still positions what the user is looking at rather than
@@ -409,11 +490,12 @@ drawer's reasons:
 
 Keeping them out is not the same job as keeping the drawer out. The drawer marks
 its buffer before its window exists. Telescope's windows are open and already
-carrying matches by the time the extension can name them, so the mark goes on,
-the matches that arrived with the window are cleared by hand, and the update
-that follows drops the window from the ledger rather than deleting anything
-through it. The borders are windows of their own and get the same treatment,
-since a pattern like `.` matches what is in them too.
+being painted by the time the extension can name them, so the mark goes on,
+which stops the painting from the next redraw, and the matches that arrived with
+the window are cleared by hand — the current match is a match rather than
+painting, and marking the buffer does not take one that is already there away.
+The borders are windows of their own and get the same treatment, since a pattern
+like `.` matches what is in them too.
 
 ## The indicator
 

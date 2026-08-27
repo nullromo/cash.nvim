@@ -285,8 +285,8 @@ return function(h)
         cash.setCashRegister(3)
         h.check(
             'two cash registers are lit to begin with',
-            #vim.fn.getmatches(window) == 2,
-            #vim.fn.getmatches(window) .. ' matches'
+            h.litCount(window) == 2,
+            h.litCount(window) .. ' lit'
         )
 
         -- vim only ever applied :nohlsearch to the working cash register,
@@ -296,16 +296,16 @@ return function(h)
         cash.updateHighlights()
         h.check(
             'nohlsearch takes all of them away',
-            #vim.fn.getmatches(window) == 0,
-            #vim.fn.getmatches(window) .. ' matches'
+            h.litCount(window) == 0,
+            h.litCount(window) .. ' lit'
         )
 
         vim.v.hlsearch = 1
         cash.updateHighlights()
         h.check(
             'and turning search highlighting back on restores them',
-            #vim.fn.getmatches(window) == 2,
-            #vim.fn.getmatches(window) .. ' matches'
+            h.litCount(window) == 2,
+            h.litCount(window) .. ' lit'
         )
 
         -- the reconcile itself is wired to SafeState, which does not fire in

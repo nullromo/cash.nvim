@@ -479,12 +479,12 @@ local PANE_VALUE = PANE_WIDTH - 2 - PANE_LABEL
 
 -- the windows where this cash register's pattern actually occurs.
 --
--- Deliberately not the ledger. The ledger records where the plugin *added* a
--- match, which is a different question, and answers this one wrongly in both
--- directions: a pattern with a match added but nothing to match reads as
--- present, and the selected cash register reads as absent even while it is lit
--- up on screen, because it is drawn by hlsearch rather than by a match. The
--- line says "matching window IDs", so it counts matches.
+-- Deliberately not what the plugin says it is painting. That records which
+-- patterns it would paint, which is a different question, and answers this one
+-- wrongly in both directions: a pattern being painted with nothing to match
+-- reads as present, and the selected cash register reads as absent even while
+-- it is lit up on screen, because it is drawn by hlsearch rather than by this
+-- plugin. The line says "matching window IDs", so it counts matches.
 --
 -- maxcount stops at the first hit, since the question is only whether there is
 -- one, and timeout keeps a pathological pattern from stalling the pane while
@@ -715,8 +715,8 @@ ui.openPane = function()
     vim.bo[buffer].buftype = 'nofile'
     vim.bo[buffer].bufhidden = 'wipe'
     vim.bo[buffer].swapfile = false
-    -- the pane names patterns too, so it is kept out of the ledger for the
-    -- same reason the drawer is
+    -- the pane names patterns too, so it is kept out of the highlighting for
+    -- the same reason the drawer is
     vim.b[buffer].cashDrawer = true
 
     drawer.paneBuffer = buffer
@@ -1093,7 +1093,7 @@ ui.openChooser = function(cash, style)
     local buffer = vim.api.nvim_create_buf(false, true)
     vim.bo[buffer].bufhidden = 'wipe'
     -- the chooser holds patterns as literal text too, so it is kept out of the
-    -- ledger for the same reason the drawer is
+    -- highlighting for the same reason the drawer is
     vim.b[buffer].cashDrawer = true
     vim.api.nvim_buf_set_lines(buffer, 0, -1, false, text)
 
@@ -1248,8 +1248,9 @@ ui.open = function(cash)
     --
     -- Search, CurSearch and IncSearch because the drawer's buffer holds the
     -- search patterns as literal text, so vim's own hlsearch matches them
-    -- here. That is not the ledger, and excluding the window from it does not
-    -- help: it is vim highlighting @/ wherever it appears. Left alone, the
+    -- here. That is not this plugin's own painting, and marking the buffer to
+    -- stop that does not help: it is vim highlighting @/ wherever it appears.
+    -- Left alone, the
     -- pattern the user is searching for wears CurSearch in the drawer as soon
     -- as the cursor reaches its row, and a pattern that occurs inside another
     -- one lights up part of it. The drawer has one job -- showing each cash

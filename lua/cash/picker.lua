@@ -102,12 +102,12 @@ end
 --
 -- What is different here is that the buffers are not this plugin's to make.
 -- The drawer marks its buffer before its window exists; telescope opens its
--- windows without noautocmd, so the WinNew that fires reaches updateHighlights
--- while there is still nothing to mark, and the matches are already in place by
--- the time the picker can hand its windows over. So the mark goes on, whatever
--- arrived with the window is cleared, and the update at the end drops the
--- window from the ledger -- which is a record of matches that have already
--- gone, so it is dropped rather than deleted
+-- windows without noautocmd, so the highlighting is already reaching them by
+-- the time the picker can hand its windows over. So the mark goes on, which
+-- stops the cash registers being painted there from the next redraw, and
+-- whatever matches arrived with the window are cleared by hand -- the current
+-- match is a match rather than painting, and marking the buffer does not take
+-- one that is already there away
 ---@param cash cash.Module
 ---@param windows integer[] telescope's own windows
 picker.excludeFromHighlighting = function(cash, windows)
@@ -118,7 +118,7 @@ picker.excludeFromHighlighting = function(cash, windows)
 
     for _, window in ipairs(windows) do
         if vim.api.nvim_win_is_valid(window) then
-            -- the mark is on the buffer, which is what updateHighlights asks
+            -- the mark is on the buffer, which is what the painting asks
             -- about
             vim.b[vim.api.nvim_win_get_buf(window)].cashDrawer = true
 

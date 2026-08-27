@@ -53,6 +53,49 @@ harness.knownBroken = function(name, condition, detail)
     end
 end
 
+-- What the cash registers are painting in a window, as a map from cash register
+-- index to the pattern it is painting.
+--
+-- A cash register's highlighting is an extmark added while vim is drawing and
+-- gone again afterwards, so there is nothing left behind to read: the plugin
+-- has to be asked instead. These three are what the suite used to ask
+-- vim.fn.getmatches() for, and they are here rather than in each spec because
+-- six of them need the same question
+---@param windowID? integer the current window when left out
+---@return table<integer, string>
+harness.lit = function(windowID)
+    return require('cash.highlights').litCashRegisters(windowID)
+end
+
+-- how many cash registers are painting in a window
+---@param windowID? integer
+---@return integer
+harness.litCount = function(windowID)
+    return vim.tbl_count(harness.lit(windowID))
+end
+
+-- the pattern one cash register is painting in a window, or nil when it is
+-- painting nothing
+---@param windowID? integer
+---@param index integer
+---@return string|nil
+harness.litPattern = function(windowID, index)
+    return harness.lit(windowID)[index]
+end
+
+-- every cash register painting in a window, as "CashRegisterN=pattern", sorted
+-- so that it can be compared as a single string
+---@param windowID? integer
+---@return string
+harness.litSummary = function(windowID)
+    local out = {}
+    for index, matchPattern in pairs(harness.lit(windowID)) do
+        table.insert(out, 'CashRegister' .. index .. '=' .. matchPattern)
+    end
+    table.sort(out)
+    return table.concat(out, ' ')
+end
+
 -- returns the number of failures, so the runner can set an exit code
 harness.summary = function()
     print(

@@ -244,16 +244,16 @@ return function(h)
 
         h.check(
             'a window nobody has excluded is highlighted like any other',
-            #vim.fn.getmatches(theirs) == 1,
-            #vim.fn.getmatches(theirs) .. ' matches'
+            h.litCount(theirs) == 1,
+            h.litCount(theirs) .. ' lit'
         )
 
         picker.excludeFromHighlighting(cash, { theirs })
 
         h.check(
             'excluding it takes away the matches it already had',
-            #vim.fn.getmatches(theirs) == 0,
-            vim.inspect(vim.fn.getmatches(theirs))
+            h.litCount(theirs) == 0,
+            '[' .. h.litSummary(theirs) .. ']'
         )
         h.check(
             'marks the buffer the way the drawer marks its own',
@@ -277,13 +277,13 @@ return function(h)
             ) ~= nil,
             vim.wo[theirs].winhighlight
         )
-        h.check('and drops it from the ledger', not isTracked(theirs))
+        h.check('and stops tracking it', not isTracked(theirs))
 
         cash.updateHighlights()
         h.check(
             'a later update does not put the matches back',
-            #vim.fn.getmatches(theirs) == 0,
-            vim.inspect(vim.fn.getmatches(theirs))
+            h.litCount(theirs) == 0,
+            '[' .. h.litSummary(theirs) .. ']'
         )
 
         vim.api.nvim_win_close(theirs, true)

@@ -209,8 +209,8 @@ return function(h)
         cash.showHighlighting()
         h.check(
             'a cash register is lit to begin with',
-            #vim.fn.getmatches(window) == 1,
-            #vim.fn.getmatches(window) .. ' matches'
+            h.litCount(window) == 1,
+            h.litCount(window) .. ' lit'
         )
 
         -- the search that turned the highlighting on moves the cursor itself,
@@ -233,12 +233,12 @@ return function(h)
         end)
         h.check(
             'but the next one clears everything',
-            vim.v.hlsearch == 0 and #vim.fn.getmatches(window) == 0,
+            vim.v.hlsearch == 0 and h.litCount(window) == 0,
             'v:hlsearch='
                 .. vim.v.hlsearch
                 .. ' '
-                .. #vim.fn.getmatches(window)
-                .. ' matches'
+                .. h.litCount(window)
+                .. ' lit'
         )
 
         -- and it stays off until something searches again
@@ -303,12 +303,12 @@ return function(h)
         end)
         h.check(
             'the search has the last word, not the clear',
-            vim.v.hlsearch == 1 and #vim.fn.getmatches(window) == 1,
+            vim.v.hlsearch == 1 and h.litCount(window) == 1,
             'v:hlsearch='
                 .. vim.v.hlsearch
                 .. ' '
-                .. #vim.fn.getmatches(window)
-                .. ' matches'
+                .. h.litCount(window)
+                .. ' lit'
         )
 
         -- and the next ordinary movement still clears, so nothing has been
@@ -319,12 +319,12 @@ return function(h)
         end)
         h.check(
             'and the movement after it clears as usual',
-            vim.v.hlsearch == 0 and #vim.fn.getmatches(window) == 0,
+            vim.v.hlsearch == 0 and h.litCount(window) == 0,
             'v:hlsearch='
                 .. vim.v.hlsearch
                 .. ' '
-                .. #vim.fn.getmatches(window)
-                .. ' matches'
+                .. h.litCount(window)
+                .. ' lit'
         )
     end
 
@@ -357,12 +357,12 @@ return function(h)
         end)
         h.check(
             'the movement after a search that stood still still clears',
-            vim.v.hlsearch == 0 and #vim.fn.getmatches(window) == 0,
+            vim.v.hlsearch == 0 and h.litCount(window) == 0,
             'v:hlsearch='
                 .. vim.v.hlsearch
                 .. ' '
-                .. #vim.fn.getmatches(window)
-                .. ' matches'
+                .. h.litCount(window)
+                .. ' lit'
         )
     end
 
@@ -395,12 +395,12 @@ return function(h)
         end)
         h.check(
             'pressing * does not clear what pressing * lit up',
-            vim.v.hlsearch == 1 and #vim.fn.getmatches(window) == 1,
+            vim.v.hlsearch == 1 and h.litCount(window) == 1,
             'v:hlsearch='
                 .. vim.v.hlsearch
                 .. ' '
-                .. #vim.fn.getmatches(window)
-                .. ' matches'
+                .. h.litCount(window)
+                .. ' lit'
         )
     end
 

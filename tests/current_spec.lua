@@ -233,20 +233,19 @@ return function(h)
             'priority ' .. tostring(currentMatchPriority(window))
         )
 
-        local registerPriority = nil
-        for _, match in ipairs(vim.fn.getmatches(window)) do
-            if match.group == 'CashRegister2' then
-                registerPriority = match.priority
-            end
-        end
+        -- and above the cash register whose match it is. There is no number
+        -- to compare it against: a cash register paints an extmark, and a
+        -- match covers an extmark whatever priority the extmark was given, so
+        -- the current match is above it by construction. What is worth
+        -- checking is that the two are talking about the same text, since a
+        -- cash register painting nothing here would make the check above
+        -- vacuous
         h.check(
-            "and above the cash register's own match",
-            registerPriority ~= nil
-                and (currentMatchPriority(window) or 0) > registerPriority,
-            'current '
-                .. tostring(currentMatchPriority(window))
-                .. ', register '
-                .. tostring(registerPriority)
+            'and the cash register it belongs to is painting the same text',
+            h.litPattern(window, 2) == '\\Cbar',
+            'cash register 2 is painting ['
+                .. tostring(h.litPattern(window, 2))
+                .. ']'
         )
     end
 

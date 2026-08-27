@@ -47,12 +47,7 @@ return function(h)
     end
 
     local function matchesIn(windowID)
-        local out = {}
-        for _, match in ipairs(vim.fn.getmatches(windowID)) do
-            table.insert(out, match.group .. '=' .. match.pattern)
-        end
-        table.sort(out)
-        return table.concat(out, ' ')
+        return h.litSummary(windowID)
     end
 
     -- a single empty window with the plugin freshly set up. Deliberately does

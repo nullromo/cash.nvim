@@ -507,9 +507,9 @@ CashModule.resetCashRegisters = function()
     CashModule.initializeData()
 
     -- remove the highlights for the cash registers that were just emptied.
-    -- Note that the state is reset before this, never after: the ledger of
-    -- match IDs lives in the highlights module precisely so that it cannot be
-    -- thrown away while the matches it describes are still on screen
+    -- Note that the state is reset before this, never after: what to paint
+    -- lives in the highlights module precisely so that it cannot be thrown
+    -- away while the last thing it said is still on screen
     CashModule.updateHighlights()
 end
 
@@ -518,7 +518,11 @@ end
 CashModule.setUpAutocmds = function()
     local group = vim.api.nvim_create_augroup('CashNvim', { clear = true })
 
-    -- a new window needs the highlights for the non-working cash registers.
+    -- a new window needs the current match worked out for it, since that is
+    -- per window and is kept up to date from the windows this plugin already
+    -- knows about. The cash registers themselves need nothing here: they are
+    -- painted as the window is drawn, whenever that first happens.
+    --
     -- WinNew catches windows that are created without being entered; WinEnter
     -- is a cheap safety net, since an update that finds nothing out of place
     -- does not touch vim at all
@@ -534,8 +538,8 @@ CashModule.setUpAutocmds = function()
     -- That covers a colorscheme loaded after this plugin by a plugin manager
     -- as well as one switched to mid-session.
     --
-    -- Only the groups. matchadd binds a match to a group by name and looks up
-    -- the color at draw time, so the matches on screen already point at
+    -- Only the groups. A highlight names a group rather than a color, and the
+    -- group is looked up as vim draws, so what is on screen already points at
     -- whatever the groups now say and there is nothing to rebuild.
     --
     -- The update afterwards is for Search, which the colorscheme has just

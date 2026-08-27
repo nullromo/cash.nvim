@@ -106,19 +106,23 @@ return function(h)
         local drawerWindow = vim.api.nvim_get_current_win()
         cash.updateHighlights()
         h.check(
-            'the drawer window gets no cash matches of its own',
-            #vim.fn.getmatches(drawerWindow) == 0,
-            #vim.fn.getmatches(drawerWindow) .. ' matches'
+            'the drawer window gets no cash highlighting of its own',
+            h.litCount(drawerWindow) == 0
+                and #vim.fn.getmatches(drawerWindow) == 0,
+            h.litCount(drawerWindow)
+                .. ' lit, '
+                .. #vim.fn.getmatches(drawerWindow)
+                .. ' matches'
         )
         h.check(
             'while the window behind it keeps them',
-            #vim.fn.getmatches(origin) == 1,
-            #vim.fn.getmatches(origin) .. ' matches'
+            h.litCount(origin) == 1,
+            h.litCount(origin) .. ' lit'
         )
 
         -- the drawer's buffer holds the patterns as literal text, so vim's own
-        -- hlsearch matches them here. That is not the ledger, and leaving the
-        -- window out of it does not help: it is vim highlighting @/ wherever
+        -- hlsearch matches them here. That is not this plugin's painting, and
+        -- leaving the window out does not help: it is vim highlighting @/ wherever
         -- it appears. Left alone, a pattern wore CurSearch as soon as the
         -- cursor reached its row, and a pattern occurring inside another one
         -- lit up part of it
@@ -243,8 +247,8 @@ return function(h)
         -- prompt
         h.check(
             'the highlights behind the drawer keep up',
-            #vim.fn.getmatches(origin) == 1,
-            #vim.fn.getmatches(origin) .. ' matches'
+            h.litCount(origin) == 1,
+            h.litCount(origin) .. ' lit'
         )
 
         -- D on a line that holds only the pattern already clears the register,
@@ -337,8 +341,8 @@ return function(h)
 
         h.check(
             'clearing every row removes every match',
-            #vim.fn.getmatches(origin) == 0,
-            #vim.fn.getmatches(origin) .. ' matches'
+            h.litCount(origin) == 0,
+            h.litCount(origin) .. ' lit'
         )
 
         -- the selected cash register is painted by vim's own hlsearch on @/
@@ -406,8 +410,8 @@ return function(h)
         cash.updateHighlights()
         h.check(
             'nothing is lit to begin with',
-            #vim.fn.getmatches(origin) == 0,
-            #vim.fn.getmatches(origin) .. ' matches'
+            h.litCount(origin) == 0,
+            h.litCount(origin) .. ' lit'
         )
 
         -- there is no point showing every cash register's contents and colors
@@ -416,23 +420,23 @@ return function(h)
         vim.cmd('Cash')
         h.check(
             'opening the drawer brings the highlighting back',
-            vim.v.hlsearch == 1 and #vim.fn.getmatches(origin) == 1,
+            vim.v.hlsearch == 1 and h.litCount(origin) == 1,
             'v:hlsearch='
                 .. vim.v.hlsearch
                 .. ' '
-                .. #vim.fn.getmatches(origin)
-                .. ' matches'
+                .. h.litCount(origin)
+                .. ' lit'
         )
 
         press('q')
         h.check(
             'and it is still on once the drawer closes',
-            vim.v.hlsearch == 1 and #vim.fn.getmatches(origin) == 1,
+            vim.v.hlsearch == 1 and h.litCount(origin) == 1,
             'v:hlsearch='
                 .. vim.v.hlsearch
                 .. ' '
-                .. #vim.fn.getmatches(origin)
-                .. ' matches'
+                .. h.litCount(origin)
+                .. ' lit'
         )
     end
 
@@ -567,22 +571,22 @@ return function(h)
         cash.setCashRegister(2)
         h.check(
             'a cash register is lit to begin with',
-            #vim.fn.getmatches(origin) == 1,
-            #vim.fn.getmatches(origin) .. ' matches'
+            h.litCount(origin) == 1,
+            h.litCount(origin) .. ' lit'
         )
 
         vim.cmd('Cash hide')
         h.check(
             ':Cash hide takes every highlight away',
-            #vim.fn.getmatches(origin) == 0,
-            #vim.fn.getmatches(origin) .. ' matches'
+            h.litCount(origin) == 0,
+            h.litCount(origin) .. ' lit'
         )
 
         vim.cmd('Cash show')
         h.check(
             ':Cash show brings them back',
-            #vim.fn.getmatches(origin) == 1,
-            #vim.fn.getmatches(origin) .. ' matches'
+            h.litCount(origin) == 1,
+            h.litCount(origin) .. ' lit'
         )
 
         vim.cmd('Cash reset')
@@ -650,16 +654,17 @@ return function(h)
             paneText()
         )
 
-        -- the ledger, which nothing else surfaces. This is issue #3's real ask
+        -- which windows the pattern occurs in, which nothing else surfaces.
+        -- This is issue #3's real ask
         h.check(
             'and the windows carrying a match for it',
             paneText():find('matching window IDs%s+%d+') ~= nil,
             paneText()
         )
 
-        -- the selected cash register never has a ledger entry, because it is
-        -- drawn by vim's hlsearch rather than by a match. The selected line is
-        -- what accounts for that
+        -- the selected cash register is never painted by this plugin, because
+        -- vim's hlsearch draws it. The selected line is what accounts for
+        -- that
         press('1G')
         vim.cmd('doautocmd CursorMoved')
         h.check(
@@ -667,10 +672,10 @@ return function(h)
             paneText():find('selected', 1, true) ~= nil,
             paneText()
         )
-        -- the selected cash register has no matchadd of its own -- it is
-        -- drawn by hlsearch -- but its pattern is still visibly matching in
-        -- the window behind, so it must be listed. Reporting the ledger here
-        -- said "none" while the text was lit up on screen
+        -- the selected cash register is not painted by this plugin -- vim's
+        -- hlsearch draws it -- but its pattern is still visibly matching in
+        -- the window behind, so it must be listed. Reporting what the plugin
+        -- paints here said "none" while the text was lit up on screen
         h.check(
             'the selected cash register still lists the window it matches in',
             paneText():find('matching window IDs%s+%d+') ~= nil,
@@ -696,8 +701,8 @@ return function(h)
             paneText()
         )
 
-        -- a pattern gets a matchadd whether or not it matches anything, so
-        -- the ledger claimed a window for one that occurs nowhere
+        -- a pattern is painted whether or not it matches anything, so
+        -- reporting that claimed a window for one that occurs nowhere
         edit('5Gazzzzzzzz<Esc>')
         vim.cmd('doautocmd CursorMoved')
         h.check(

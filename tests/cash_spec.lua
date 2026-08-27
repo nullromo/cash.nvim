@@ -11,28 +11,18 @@ return function(h)
     local highlights = require('cash.highlights')
     local options = require('cash.options')
 
-    -- every match in a window, as "group=pattern", sorted so it can be
-    -- compared as a single string
+    -- every cash register painting in a window, as "group=pattern", sorted so
+    -- it can be compared as a single string
     local function matchesIn(windowID)
-        local out = {}
-        for _, match in ipairs(vim.fn.getmatches(windowID)) do
-            table.insert(out, match.group .. '=' .. match.pattern)
-        end
-        table.sort(out)
-        return table.concat(out, ' ')
+        return h.litSummary(windowID)
     end
 
-    -- the pattern one cash register is highlighting in a window, or nil
+    -- the pattern one cash register is painting in a window, or nil
     local function matchFor(windowID, index)
-        for _, match in ipairs(vim.fn.getmatches(windowID)) do
-            if match.group == 'CashRegister' .. index then
-                return match.pattern
-            end
-        end
-        return nil
+        return h.litPattern(windowID, index)
     end
 
-    local function ledgerWindowCount()
+    local function trackedWindowCount()
         return #highlights.trackedWindows()
     end
 
@@ -175,9 +165,9 @@ return function(h)
             'got [' .. matchesIn(window) .. '] want [' .. before .. ']'
         )
         h.check(
-            'and do not accumulate matches',
-            #vim.fn.getmatches(window) == 1,
-            #vim.fn.getmatches(window) .. ' matches'
+            'and leave exactly one cash register painting',
+            h.litCount(window) == 1,
+            h.litCount(window) .. ' lit'
         )
     end
 
@@ -210,10 +200,10 @@ return function(h)
         vim.cmd('only')
         cash.updateHighlights()
         h.check(
-            'closed windows are dropped from the ledger',
-            ledgerWindowCount() == #vim.api.nvim_list_wins(),
-            'ledger has '
-                .. ledgerWindowCount()
+            'closed windows stop being tracked',
+            trackedWindowCount() == #vim.api.nvim_list_wins(),
+            'tracking '
+                .. trackedWindowCount()
                 .. ', vim has '
                 .. #vim.api.nvim_list_wins()
         )
@@ -363,8 +353,9 @@ return function(h)
             cash.state.currentIndex == 1
         )
 
-        -- the ledger used to be thrown away on reset, which left the matches
-        -- it described stranded in vim with nothing tracking them
+        -- what to paint used to be thrown away on reset before the state it
+        -- described was, which left highlights stranded in vim with nothing
+        -- tracking them
         cash.setSearch('after')
         cash.setCashRegister(2)
         h.check(
@@ -480,7 +471,7 @@ return function(h)
                 vim.api.nvim_get_hl(0, { name = 'CashRegisterFg' .. index })
         end
         local searchBefore = vim.api.nvim_get_hl(0, { name = 'Search' })
-        local matchesBefore = vim.fn.getmatches(window)
+        local litBefore = h.litSummary(window)
 
         vim.cmd.colorscheme('habamax')
 
@@ -505,13 +496,13 @@ return function(h)
                 .. vim.inspect(vim.api.nvim_get_hl(0, { name = 'Search' }))
         )
 
-        -- matchadd binds a match to a group by name and looks the color up at
-        -- draw time, so re-creating the groups is the whole fix. A match that
-        -- was deleted and added again would come back with a new ID
+        -- an extmark names a group rather than a color, and the group is
+        -- looked up as vim draws, so re-creating the groups is the whole fix.
+        -- Nothing about what each cash register is painting has to change
         h.check(
-            'without rebuilding a single match',
-            vim.deep_equal(vim.fn.getmatches(window), matchesBefore),
-            'became ' .. vim.inspect(vim.fn.getmatches(window))
+            'without changing what any cash register is painting',
+            h.litSummary(window) == litBefore,
+            'became [' .. h.litSummary(window) .. ']'
         )
 
         -- the rest of the suite shares this neovim, and is entitled to the
