@@ -129,14 +129,23 @@ indicator.label = function(cash, overrides)
     -- have to be the same thing
     if hasNumber then
         if opts.style == 'strip' then
-            -- a marker slot in front of every number rather than only in front
-            -- of the working one, so that the marker moving does not move the
-            -- other eight numbers along with it. It costs a cell in front of
-            -- cash register 1 that is usually blank, and buys a strip that is
-            -- the same shape and the same width whichever cash register is
-            -- working
+            -- the marker takes the place of the space in front of the working
+            -- number rather than having a slot of its own, so that nothing
+            -- sits between the left bracket and cash register 1. Which is why
+            -- the marker goes in front of its number and not after it: it
+            -- would be pointing at the next number along.
+            --
+            -- The numbers therefore stay where they are for as long as the
+            -- working one is 2 to 9, and cash register 1 is the one exception:
+            -- there is no space in front of it for the marker to take, so that
+            -- label is a cell wider than the other eight
             for cell = 1, 9 do
-                table.insert(chunks, { cell == index and MARKER or ' ', tint })
+                if cell == index then
+                    table.insert(chunks, { MARKER, tint })
+                elseif cell > 1 then
+                    table.insert(chunks, { ' ', tint })
+                end
+
                 table.insert(
                     chunks,
                     { tostring(cell), stripGroup(cash, inSearchSet, cell) }

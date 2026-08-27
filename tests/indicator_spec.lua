@@ -348,8 +348,8 @@ return function(h)
 
         local label = cash.label()
         h.check(
-            'is all nine numbers, each with a slot for the marker',
-            label.text == '❰ 1▸2 3 4 5 6 7 8 9❱',
+            'is all nine numbers, with nothing between them and the brackets',
+            label.text == '❰1▸2 3 4 5 6 7 8 9❱',
             label.text
         )
         h.check(
@@ -375,14 +375,15 @@ return function(h)
             tostring(groupAt(label, '8'))
         )
 
-        -- the marker has a slot of its own in front of every number, so the
-        -- one it is in front of can change without any of them moving
+        -- the marker takes the place of the space in front of the working
+        -- number, so the one it is in front of can change without any of the
+        -- numbers moving
         local before = cash.label().text
         cash.setCashRegister(9)
         local after = cash.label().text
         h.check(
             'the marker says which one is working',
-            after == '❰ 1 2 3 4 5 6 7 8▸9❱',
+            after == '❰1 2 3 4 5 6 7 8▸9❱',
             after
         )
         h.check(
@@ -390,6 +391,18 @@ return function(h)
             vim.fn.strdisplaywidth(before) == vim.fn.strdisplaywidth(after)
                 and before:gsub('▸', ' ') == after:gsub('▸', ' '),
             before .. ' then ' .. after
+        )
+
+        -- cash register 1 has no space in front of it for the marker to take,
+        -- so it is the one label that comes out a cell wider. The alternative
+        -- is a blank cell after the left bracket in the other eight
+        cash.setCashRegister(1)
+        h.check(
+            'and cash register 1 takes the marker without a space for it',
+            cash.label().text == '❰▸1 2 3 4 5 6 7 8 9❱'
+                and vim.fn.strdisplaywidth(cash.label().text)
+                    == vim.fn.strdisplaywidth(after) + 1,
+            cash.label().text
         )
     end
 

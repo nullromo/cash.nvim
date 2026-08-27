@@ -488,13 +488,19 @@ as "holds a pattern". What it is asked is which cash register to pick, not
 where `n` will go, and it has a column of its own for the `▸`.
 
 **`▸` is what says which one is working**, since the swatch is busy saying
-something else. The strip gives every number a marker slot of its own rather
-than one cell in front of the working number. The marker then moves without
-shifting the other eight numbers along with it, which was the objection that
-kept a marker off the strip in the first place, and it costs a blank cell in
-front of cash register 1. The narrow style draws the marker only once there is
-more than one number in the label. On its own it would be a triangle pointing
-at the only number there is.
+something else. On the strip it takes the place of the space in front of the
+working number rather than having a slot of its own, so the numbers stay where
+they are as the marker moves between cash registers 2 to 9. That was the
+objection that kept a marker off the strip in the first place. Cash register 1
+is the exception: there is no space in front of it to take, so that label is a
+cell wider than the other eight. A slot of its own would fix that at the price
+of a blank cell after the left bracket in eight labels out of nine, which is
+the more visible of the two.
+
+The marker goes in front of its number rather than after it because `▸` points
+right, and after the number it points at the next one along. The narrow style
+draws it only once there is more than one number in the label. On its own it
+would be a triangle pointing at the only number there is.
 
 **The brackets can be named or written out.** `indicator.brackets` takes
 either the name of one of the pairs in `constants.brackets` or a

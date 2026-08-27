@@ -212,7 +212,7 @@ The indicator has 2 styles: `'current'` (which shows the search set) and
 
 ```
 ❰1 ▸3 5❱               'current', with 1 and 5 included in the search as well
-❰ 1▸2 3 4 5 6 7 8 9❱   'strip', with 2 the current cash register
+❰1▸2 3 4 5 6 7 8 9❱    'strip', with 2 the current cash register
 ```
 
 Every cash register in the search set is highlighted in its own color, and the
