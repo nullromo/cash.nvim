@@ -180,7 +180,19 @@ return function(h)
         cash.setSearch('abcdefghij')
         h.check(
             'and the number is never the part that gives way',
-            cash.label().text == '❰1 2 3 4 5 6 7 8 9❱',
+            cash.label().text == '❰▸1 2 3 4 5 6 7 8 9❱',
+            cash.label().text
+        )
+
+        -- the search set is part of the number in the narrow style, so it is
+        -- not what gives way either
+        fresh({ display = 'number-and-pattern', maxWidth = 10 })
+        cash.setSearch('abcdefghij')
+        cash.setIncludeInSearch(3, true)
+        cash.setIncludeInSearch(5, true)
+        h.check(
+            'nor is the rest of the search set',
+            cash.label().text == '❰▸1 3 5❱',
             cash.label().text
         )
 
@@ -329,28 +341,111 @@ return function(h)
     do
         fresh({ style = 'strip' })
         store(4, 'bar')
+        store(5, 'baz')
+        cash.setIncludeInSearch(4, true)
+        cash.setIncludeInSearch(8, true)
         cash.setCashRegister(2)
 
         local label = cash.label()
         h.check(
-            'is all nine numbers',
-            label.text == '❰1 2 3 4 5 6 7 8 9❱',
+            'is all nine numbers, each with a slot for the marker',
+            label.text == '❰ 1▸2 3 4 5 6 7 8 9❱',
             label.text
         )
         h.check(
-            'with the working cash register wearing its color as a swatch',
-            groupAt(label, '2') == 'CashRegister2',
-            tostring(groupAt(label, '2'))
+            'a cash register in the search set wears its color as a swatch',
+            groupAt(label, '2') == 'CashRegister2'
+                and groupAt(label, '4') == 'CashRegister4',
+            vim.inspect({ groupAt(label, '2'), groupAt(label, '4') })
         )
         h.check(
-            'one that holds a pattern wearing it as text',
-            groupAt(label, '4') == 'CashRegisterFg4',
-            tostring(groupAt(label, '4'))
+            'one holding a pattern that n and N skip wears it as text',
+            groupAt(label, '5') == 'CashRegisterFg5',
+            tostring(groupAt(label, '5'))
         )
         h.check(
-            'and an empty one in Comment',
+            'one that is neither is in Comment',
             groupAt(label, '7') == 'Comment',
             tostring(groupAt(label, '7'))
+        )
+        h.check(
+            'and an included cash register with nothing in it is swatched all'
+                .. ' the same',
+            groupAt(label, '8') == 'CashRegister8',
+            tostring(groupAt(label, '8'))
+        )
+
+        -- the marker has a slot of its own in front of every number, so the
+        -- one it is in front of can change without any of them moving
+        local before = cash.label().text
+        cash.setCashRegister(9)
+        local after = cash.label().text
+        h.check(
+            'the marker says which one is working',
+            after == '❰ 1 2 3 4 5 6 7 8▸9❱',
+            after
+        )
+        h.check(
+            'and moving it moves nothing else',
+            vim.fn.strdisplaywidth(before) == vim.fn.strdisplaywidth(after)
+                and before:gsub('▸', ' ') == after:gsub('▸', ' '),
+            before .. ' then ' .. after
+        )
+    end
+
+    ----------------------------------------------------------------------
+
+    h.group('the search set in the narrow style')
+
+    do
+        fresh()
+
+        h.check(
+            'a search set of one is that number on its own, with no marker',
+            cash.label().text == '❰1❱',
+            cash.label().text
+        )
+
+        cash.setIncludeInSearch(1, true)
+        cash.setIncludeInSearch(3, true)
+        cash.setIncludeInSearch(5, true)
+        h.check(
+            'and the whole set once there is more of it',
+            cash.label().text == '❰▸1 3 5❱',
+            cash.label().text
+        )
+
+        cash.setCashRegister(3)
+        h.check(
+            'with the marker on the working one wherever it sits in the set',
+            cash.label().text == '❰1 ▸3 5❱',
+            cash.label().text
+        )
+
+        local label = cash.label()
+        h.check(
+            'every number in the set wearing its own color as a swatch',
+            groupAt(label, '1') == 'CashRegister1'
+                and groupAt(label, '5') == 'CashRegister5',
+            vim.inspect({ groupAt(label, '1'), groupAt(label, '5') })
+        )
+
+        cash.setIncludeInSearch(5, false)
+        h.check(
+            'a cash register taken out of the set leaves the label',
+            cash.label().text == '❰1 ▸3❱',
+            cash.label().text
+        )
+
+        -- the working cash register is in the search set whatever its own
+        -- switch says, which is jump.searchSet's rule and has to be the
+        -- indicator's too
+        cash.setCashRegister(7)
+        h.check(
+            'and the working one is in it with its own switch off',
+            cash.label().text == '❰1 3 ▸7❱'
+                and cash.state.cashRegisters[7].includeInSearch == false,
+            cash.label().text
         )
     end
 

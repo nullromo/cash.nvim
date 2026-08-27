@@ -207,8 +207,16 @@ There is a static heads-up display for the current cash register that you can
 enable or put into your statusline. Setting `indicator = { show = true }`, or
 using the `:Cash indicator` command will display the indicator.
 
-The indicator has 2 styles: `'current'` (which shows the current cash register)
-and `'strip'` (which shows all nine cash registers).
+The indicator has 2 styles: `'current'` (which shows the search set) and
+`'strip'` (which shows all nine cash registers).
+
+```
+❰1 ▸3 5❱               'current', with 1 and 5 included in the search as well
+❰ 1▸2 3 4 5 6 7 8 9❱   'strip', with 2 the current cash register
+```
+
+Every cash register in the search set is highlighted in its own color, and the
+`▸` marks the current one.
 
 Cash.nvim does not modify your `statusline`, `winbar` or `tabline`. To put the
 indicator label in one of these lines, use `require('cash').statusline()` as an
@@ -398,8 +406,7 @@ type there, like this:
     indicator = {
         -- whether it is on screen at all
         show = false,
-        -- 'current' for the working cash register on its own, 'strip' for all
-        -- nine of them
+        -- 'current' for just the search set, 'strip' for all nine registers
         style = 'current',
         -- where on screen the indicator appears ('center', 'bottom-right',
         -- 'bottom', 'bottom-left', 'left', 'top-left', 'top', 'top-right', or
@@ -443,9 +450,9 @@ type there, like this:
 | `chooser.position`, `drawer.position`, and `indicator.position` | string                                            | `'center'` for chooser and drawer; `'bottom-right'` for indicator | Where these elements appear: `'top-left'`, `'top'`, `'top-right'`, `'left'`, `'center'`, `'right'`, `'bottom-left'`, `'bottom'` or `'bottom-right'`.                                                                                                                                                                                                                                                           |
 | `drawer.detailPane`                                             | boolean                                           | `false`                                                           | Whether the drawer's detail pane is already open when it appears. Needs a window at least 102 columns wide to function.                                                                                                                                                                                                                                                                                        |
 | `indicator.show`                                                | boolean                                           | `false`                                                           | Whether or not the indicator is on screen. Switchable with `:Cash indicator`.                                                                                                                                                                                                                                                                                                                                  |
-| `indicator.style`                                               | `'current'` or `'strip'`                          | `'current'`                                                       | What the indicator looks like. `'current'` shows the working cash register only; `'strip'` shows all nine cash registers.                                                                                                                                                                                                                                                                                      |
-| `indicator.display`                                             | `'number'`, `'pattern'` or `'number-and-pattern'` | `'number'`                                                        | What is displayed in the indicator: `❰3❱`, `❰foo❱`, or `❰3 foo❱`.                                                                                                                                                                                                                                                                                                                                              |
-| `indicator.maxWidth`                                            | number                                            | `30`                                                              | How wide the indicator may be, brackets included. The pattern will be truncated with `~` if necessary. If `maxWidth` is too small to hold the numbers in `'strip'` layout, the `maxWidth` may not be respected.                                                                                                                                                                                                |
+| `indicator.style`                                               | `'current'` or `'strip'`                          | `'current'`                                                       | What the indicator looks like. `'current'` shows the search set; `'strip'` shows all nine cash registers. Either way the search set is highlighted and `▸` marks the working cash register.                                                                                                                                                                                                                    |
+| `indicator.display`                                             | `'number'`, `'pattern'` or `'number-and-pattern'` | `'number'`                                                        | What is displayed in the indicator: `❰3❱`, `❰foo❱`, or `❰3 foo❱`. The number is the whole search set when there is more than one cash register in it, so `❰1 ▸3 5❱` and `❰1 ▸3 5 foo❱`, where `foo` is what the working cash register holds.                                                                                                                                                                   |
+| `indicator.maxWidth`                                            | number                                            | `30`                                                              | How wide the indicator may be, brackets included. The pattern will be truncated with `~` if necessary. The numbers are never cut, so a very small `maxWidth` may not be respected.                                                                                                                                                                                                                             |
 | `indicator.brackets`                                            | string or table                                   | `'heavy-angle'`                                                   | What symbols are use around the indicator. Either the name of a pair: `'ascii'` [ ], `'angle'` ‹ ›, `'heavy-angle'` ❰ ❱, `'box-light'` │ │, `'box-heavy'` ┃ ┃, `'small-cap'` ▏ ▕, `'large-cap'` ▌ ▐, `'short-corner'` ⌜ ⌟, `'tall-corner'` ｢ ｣, `'double-square'` ⟬ ⟭, `'white-square'` ⟦ ⟧, or a pair of your own `{ left = '(', right = ')' }`.                                                              |
 | `chooser.border` and `drawer.border`                            | string or table                                   | `'rounded'`                                                       | Popup border settings for the chooser and drawer, in any form `nvim_open_win` accepts.                                                                                                                                                                                                                                                                                                                         |
 

@@ -469,12 +469,32 @@ typed and `%d` is a search for a digit.
 configured one. `:Cash where` asks for the pattern whether or not the indicator
 is showing it, since someone who has typed the question wants the whole answer.
 
-**The strip reads a swatch differently from the chooser.** There, a swatch
-means "holds a pattern" and `▸` marks the working one. Here the working one
-wears the swatch, a filled one wears its color as text, and an empty one is
-`Comment`: three states, one cell each, and no marker. A marker moving along
-the strip would shift the other eight numbers about every time the answer
-changed, and this is a thing read out of the corner of an eye.
+**The label answers with the search set, not with one cash register.** Both
+styles ask `jump.searchSet` rather than working the set out again, so what the
+indicator calls the search set is what `n` and `N` call it, the working cash
+register included whatever its own switch says. On the strip that is the swatch:
+a cash register in the set wears its color as a swatch, one holding a pattern
+`n` and `N` will not visit wears it as text, and one that is neither is
+`Comment`. In the narrow style it is the list, `❰1 ▸3 5❱`, with the cash
+registers outside the set left out rather than drawn in another color.
+
+A cash register in the set with nothing in it is swatched all the same. The
+drawer's dot and the detail pane both report the flag rather than whether there
+is anything to find, and three surfaces disagreeing about the search set is
+worse than a swatch on a cash register with nothing in it.
+
+The chooser's strip is not the indicator's strip and still reads its own swatch
+as "holds a pattern". What it is asked is which cash register to pick, not
+where `n` will go, and it has a column of its own for the `▸`.
+
+**`▸` is what says which one is working**, since the swatch is busy saying
+something else. The strip gives every number a marker slot of its own rather
+than one cell in front of the working number. The marker then moves without
+shifting the other eight numbers along with it, which was the objection that
+kept a marker off the strip in the first place, and it costs a blank cell in
+front of cash register 1. The narrow style draws the marker only once there is
+more than one number in the label. On its own it would be a triangle pointing
+at the only number there is.
 
 **The brackets can be named or written out.** `indicator.brackets` takes
 either the name of one of the pairs in `constants.brackets` or a

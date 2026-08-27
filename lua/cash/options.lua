@@ -165,8 +165,9 @@ options.defaultOptions = {
         -- as require('cash').label() and require('cash').statusline() either
         -- way, for anyone putting it in a statusline of their own
         show = false,
-        -- 'current' is the working cash register on its own, 'strip' is all
-        -- nine of them with the working one wearing its color as a swatch
+        -- 'current' is the search set, 'strip' is all nine of them. Either
+        -- way the cash registers in the search set wear their color as a
+        -- swatch and the working one is marked
         style = 'current',
         -- where on screen it sits, out of the same nine places the popups use
         position = 'bottom-right',

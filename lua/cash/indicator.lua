@@ -16,6 +16,7 @@
 -- plugin's own works under all of that. What it costs is being a window that
 -- has to be kept in step, which is what update is.
 
+local jump = require('cash.jump')
 local options = require('cash.options')
 local ui = require('cash.ui')
 local util = require('cash.util')
@@ -28,7 +29,9 @@ local indicator = {}
 -- chunks is the same text split at every change of color, which is what the
 -- float draws with extmarks and what statusline turns into %# items. group is
 -- the working cash register's own highlight group, for a statusline plugin
--- that colors a component with one name rather than painting it in pieces
+-- that colors a component with one name rather than painting it in pieces --
+-- which is the whole answer while the label holds one number, and the best a
+-- single color can do once the search set has put several in there
 ---@class cash.Label
 ---@field index cash.RegisterIndex the working cash register
 ---@field pattern string what it holds, as the user typed it
@@ -36,23 +39,32 @@ local indicator = {}
 ---@field group string
 ---@field chunks cash.Chunk[]
 
+-- the marker on the working cash register, which is the one the drawer's
+-- gutter puts in front of the row the cursor is on
+local MARKER = '▸'
+
 -- the color a cash register's number is drawn in on the strip.
 --
--- Three states in one cell and no room for a marker, so the working cash
--- register is the one wearing its color as a swatch, a cash register holding a
--- pattern wears it as text, and an empty one is drawn in Comment.
+-- Three states in one cell: a cash register in the search set wears its color
+-- as a swatch, one holding a pattern that n and N will not visit wears it as
+-- text, and one that is neither is drawn in Comment.
 --
--- The chooser reads the swatch differently -- there it means "holds a pattern"
--- and the marker answers "working" -- because the chooser is asked which
--- number is the green one and has a column to answer in. The indicator is
--- asked where the user is, from the corner of the screen, and a marker that
--- moved along the strip would shift the other eight numbers about every time
--- the answer changed
+-- So the swatch answers "will n and N visit this one", which is the question
+-- the strip is there to answer for all nine at once. It used to mean "this is
+-- the working one", and the marker is what took that job over -- a marker can
+-- say which cash register is working from a slot of its own, and a color
+-- cannot say two things at once.
+--
+-- A cash register in the search set with nothing in it is swatched all the
+-- same. That is the flag the drawer's dot and the detail pane both report, and
+-- three surfaces disagreeing about what is in the search set is worse than a
+-- swatch on a cash register with nothing to find
 ---@param cash cash.Module
+---@param inSearchSet table<cash.RegisterIndex, boolean>
 ---@param index cash.RegisterIndex the cell being drawn
 ---@return string
-local stripGroup = function(cash, index)
-    if index == cash.state.currentIndex then
+local stripGroup = function(cash, inSearchSet, index)
+    if inSearchSet[index] then
         return 'CashRegister' .. index
     end
 
@@ -86,10 +98,22 @@ indicator.label = function(cash, overrides)
     -- pair as well as give one, and overrides do not go through setup
     local brackets = options.resolveBrackets(opts.brackets)
 
-    -- the brackets carry the working cash register's color in both styles. On
-    -- the strip they are the only thing that does, since each of the nine
-    -- numbers is wearing its own
+    -- the brackets carry the working cash register's color in both styles.
+    -- Wherever more than one number is drawn they are the only thing that
+    -- does, since each of those numbers is wearing its own
     local tint = 'CashRegisterFg' .. index
+
+    -- the search set, which both styles ask about a cell at a time. Asked of
+    -- jump rather than worked out again here, so that what the indicator calls
+    -- the search set is what n and N call the search set -- the working cash
+    -- register included, whatever its own switch says
+    local searchSet = jump.searchSet(cash.state.cashRegisters, index)
+
+    ---@type table<cash.RegisterIndex, boolean>
+    local inSearchSet = {}
+    for _, member in ipairs(searchSet) do
+        inSearchSet[member] = true
+    end
 
     ---@type cash.Chunk[]
     local chunks = { { brackets.left, tint } }
@@ -105,14 +129,46 @@ indicator.label = function(cash, overrides)
     -- have to be the same thing
     if hasNumber then
         if opts.style == 'strip' then
+            -- a marker slot in front of every number rather than only in front
+            -- of the working one, so that the marker moving does not move the
+            -- other eight numbers along with it. It costs a cell in front of
+            -- cash register 1 that is usually blank, and buys a strip that is
+            -- the same shape and the same width whichever cash register is
+            -- working
             for cell = 1, 9 do
-                if cell > 1 then
-                    table.insert(chunks, { ' ', tint })
-                end
-                table.insert(chunks, { tostring(cell), stripGroup(cash, cell) })
+                table.insert(chunks, { cell == index and MARKER or ' ', tint })
+                table.insert(
+                    chunks,
+                    { tostring(cell), stripGroup(cash, inSearchSet, cell) }
+                )
             end
         else
-            table.insert(chunks, { tostring(index), 'CashRegister' .. index })
+            -- the whole search set rather than the working cash register on
+            -- its own: which cash register a search filled is half the answer,
+            -- and where n and N will go from here is the other half.
+            --
+            -- The marker is only drawn when there is more than one number for
+            -- it to pick the working one out from. On its own it would be a
+            -- triangle pointing at the only number there is, which is the
+            -- common case and the one the narrow style is for
+            local marked = #searchSet > 1
+
+            for position, member in ipairs(searchSet) do
+                if position > 1 then
+                    table.insert(chunks, { ' ', tint })
+                end
+
+                if marked and member == index then
+                    table.insert(chunks, { MARKER, tint })
+                end
+
+                -- every number in here is in the search set, so every one of
+                -- them is swatched, the same as on the strip
+                table.insert(
+                    chunks,
+                    { tostring(member), 'CashRegister' .. member }
+                )
+            end
         end
     end
 
