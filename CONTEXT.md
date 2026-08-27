@@ -475,8 +475,12 @@ indicator calls the search set is what `n` and `N` call it, the working cash
 register included whatever its own switch says. On the strip that is the swatch:
 a cash register in the set wears its color as a swatch, one holding a pattern
 `n` and `N` will not visit wears it as text, and one that is neither is
-`Comment`. In the narrow style it is the list, `❰1 ▸3 5❱`, with the cash
-registers outside the set left out rather than drawn in another color.
+`Comment`. In the narrow style it is the list, `❰1▸35❱`, with the cash
+registers outside the set left out rather than drawn in another color. Those
+numbers are written up against each other and against the brackets. Each one is
+a single digit wearing a color of its own, so nothing has to separate them, and
+this is the style for people who want the answer in as few cells as it can be
+given. The one space left in it is the one holding a pattern off the numbers.
 
 A cash register in the set with nothing in it is swatched all the same. The
 drawer's dot and the detail pane both report the flag rather than whether there

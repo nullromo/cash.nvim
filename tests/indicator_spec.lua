@@ -186,13 +186,14 @@ return function(h)
 
         -- the search set is part of the number in the narrow style, so it is
         -- not what gives way either
-        fresh({ display = 'number-and-pattern', maxWidth = 10 })
+        fresh({ display = 'number-and-pattern', maxWidth = 5 })
         cash.setSearch('abcdefghij')
         cash.setIncludeInSearch(3, true)
         cash.setIncludeInSearch(5, true)
         h.check(
             'nor is the rest of the search set',
-            cash.label().text == '❰▸1 3 5❱',
+            cash.label().text == '❰▸135❱'
+                and vim.fn.strdisplaywidth(cash.label().text) > 5,
             cash.label().text
         )
 
@@ -424,14 +425,14 @@ return function(h)
         cash.setIncludeInSearch(5, true)
         h.check(
             'and the whole set once there is more of it',
-            cash.label().text == '❰▸1 3 5❱',
+            cash.label().text == '❰▸135❱',
             cash.label().text
         )
 
         cash.setCashRegister(3)
         h.check(
             'with the marker on the working one wherever it sits in the set',
-            cash.label().text == '❰1 ▸3 5❱',
+            cash.label().text == '❰1▸35❱',
             cash.label().text
         )
 
@@ -446,7 +447,7 @@ return function(h)
         cash.setIncludeInSearch(5, false)
         h.check(
             'a cash register taken out of the set leaves the label',
-            cash.label().text == '❰1 ▸3❱',
+            cash.label().text == '❰1▸3❱',
             cash.label().text
         )
 
@@ -456,9 +457,20 @@ return function(h)
         cash.setCashRegister(7)
         h.check(
             'and the working one is in it with its own switch off',
-            cash.label().text == '❰1 3 ▸7❱'
+            cash.label().text == '❰13▸7❱'
                 and cash.state.cashRegisters[7].includeInSearch == false,
             cash.label().text
+        )
+
+        -- the numbers are written up against each other and the brackets, and
+        -- the one space left in the narrow style is the one holding the
+        -- pattern off them
+        cash.setSearch('foo')
+        h.check(
+            'a pattern is still held off the numbers by a space',
+            cash.label({ display = 'number-and-pattern' }).text
+                == '❰13▸7 foo❱',
+            cash.label({ display = 'number-and-pattern' }).text
         )
     end
 

@@ -156,17 +156,19 @@ indicator.label = function(cash, overrides)
             -- its own: which cash register a search filled is half the answer,
             -- and where n and N will go from here is the other half.
             --
+            -- Written up against each other, with nothing between the numbers
+            -- and nothing between them and the brackets. There is no need to
+            -- separate them: each one is a single digit wearing a color of its
+            -- own, and this is the style for people who want the answer in as
+            -- few cells as it can be given.
+            --
             -- The marker is only drawn when there is more than one number for
             -- it to pick the working one out from. On its own it would be a
             -- triangle pointing at the only number there is, which is the
             -- common case and the one the narrow style is for
             local marked = #searchSet > 1
 
-            for position, member in ipairs(searchSet) do
-                if position > 1 then
-                    table.insert(chunks, { ' ', tint })
-                end
-
+            for _, member in ipairs(searchSet) do
                 if marked and member == index then
                     table.insert(chunks, { MARKER, tint })
                 end
